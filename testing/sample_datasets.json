@@ -1,0 +1,613 @@
+{
+  "version": "1.0.0",
+  "description": "Sample test datasets for FitLoop pipeline validation",
+  
+  "sample_vision_responses": {
+    "simple_meal_success": {
+      "request_id": "req_test001",
+      "timestamp": "2024-12-11T12:00:00Z",
+      "status": "success",
+      "image_quality": {
+        "score": 0.92,
+        "issues": []
+      },
+      "items": [
+        {
+          "item_id": "item_001",
+          "food_name": "Grilled Chicken Breast",
+          "food_category": "protein",
+          "portion": {
+            "grams": 150,
+            "household_measure": "1 medium breast",
+            "confidence": 0.85
+          },
+          "identification": {
+            "confidence": 0.92,
+            "alternatives": []
+          },
+          "nutrition": {
+            "calories": 165,
+            "protein_g": 31,
+            "carbs_g": 0,
+            "fat_g": 3.6,
+            "fiber_g": 0,
+            "sodium_mg": 74,
+            "sugar_g": 0
+          },
+          "preparation_method": "grilled",
+          "flags": []
+        }
+      ],
+      "meal_totals": {
+        "calories": 165,
+        "protein_g": 31,
+        "carbs_g": 0,
+        "fat_g": 3.6,
+        "fiber_g": 0
+      },
+      "requires_confirmation": false,
+      "confirmation_reason": null,
+      "items_needing_confirmation": []
+    },
+    
+    "multi_item_with_confirmation": {
+      "request_id": "req_test002",
+      "timestamp": "2024-12-11T13:00:00Z",
+      "status": "success",
+      "image_quality": {
+        "score": 0.88,
+        "issues": []
+      },
+      "items": [
+        {
+          "item_id": "item_001",
+          "food_name": "Grilled Salmon",
+          "food_category": "protein",
+          "portion": {
+            "grams": 180,
+            "household_measure": "6 oz fillet",
+            "confidence": 0.82
+          },
+          "identification": {
+            "confidence": 0.89,
+            "alternatives": []
+          },
+          "nutrition": {
+            "calories": 280,
+            "protein_g": 39,
+            "carbs_g": 0,
+            "fat_g": 12.5,
+            "fiber_g": 0,
+            "sodium_mg": 75,
+            "sugar_g": 0
+          },
+          "preparation_method": "grilled",
+          "flags": []
+        },
+        {
+          "item_id": "item_002",
+          "food_name": "Brown Rice",
+          "food_category": "carbohydrate",
+          "portion": {
+            "grams": 195,
+            "household_measure": "1 cup cooked",
+            "confidence": 0.68
+          },
+          "identification": {
+            "confidence": 0.72,
+            "alternatives": [
+              {"name": "White Rice", "confidence": 0.18},
+              {"name": "Quinoa", "confidence": 0.08}
+            ]
+          },
+          "nutrition": {
+            "calories": 215,
+            "protein_g": 5,
+            "carbs_g": 45,
+            "fat_g": 1.8,
+            "fiber_g": 3.5,
+            "sodium_mg": 10,
+            "sugar_g": 0
+          },
+          "preparation_method": "boiled",
+          "flags": ["portion_uncertain"]
+        },
+        {
+          "item_id": "item_003",
+          "food_name": "Steamed Broccoli",
+          "food_category": "vegetable",
+          "portion": {
+            "grams": 90,
+            "household_measure": "1 cup florets",
+            "confidence": 0.88
+          },
+          "identification": {
+            "confidence": 0.95,
+            "alternatives": []
+          },
+          "nutrition": {
+            "calories": 30,
+            "protein_g": 2.5,
+            "carbs_g": 6,
+            "fat_g": 0.3,
+            "fiber_g": 2.4,
+            "sodium_mg": 30,
+            "sugar_g": 1.5
+          },
+          "preparation_method": "steamed",
+          "flags": []
+        }
+      ],
+      "meal_totals": {
+        "calories": 525,
+        "protein_g": 46.5,
+        "carbs_g": 51,
+        "fat_g": 14.6,
+        "fiber_g": 5.9
+      },
+      "requires_confirmation": true,
+      "confirmation_reason": "One or more items have confidence below threshold",
+      "items_needing_confirmation": ["item_002"]
+    },
+    
+    "low_confidence_meal": {
+      "request_id": "req_test003",
+      "timestamp": "2024-12-11T14:00:00Z",
+      "status": "partial",
+      "image_quality": {
+        "score": 0.65,
+        "issues": ["too_dark", "partial_view"]
+      },
+      "items": [
+        {
+          "item_id": "item_001",
+          "food_name": "Mixed Stir Fry",
+          "food_category": "mixed_dish",
+          "portion": {
+            "grams": 300,
+            "household_measure": "1.5 cups",
+            "confidence": 0.45
+          },
+          "identification": {
+            "confidence": 0.52,
+            "alternatives": [
+              {"name": "Vegetable Fried Rice", "confidence": 0.25},
+              {"name": "Pad Thai", "confidence": 0.15}
+            ]
+          },
+          "nutrition": {
+            "calories": 350,
+            "protein_g": 15,
+            "carbs_g": 40,
+            "fat_g": 15,
+            "fiber_g": 4,
+            "sodium_mg": 800,
+            "sugar_g": 5
+          },
+          "preparation_method": "sauteed",
+          "flags": ["portion_uncertain", "food_partially_hidden"]
+        }
+      ],
+      "meal_totals": {
+        "calories": 350,
+        "protein_g": 15,
+        "carbs_g": 40,
+        "fat_g": 15,
+        "fiber_g": 4
+      },
+      "requires_confirmation": true,
+      "confirmation_reason": "Low confidence detection due to image quality issues",
+      "items_needing_confirmation": ["item_001"]
+    },
+    
+    "no_food_detected": {
+      "request_id": "req_test004",
+      "timestamp": "2024-12-11T15:00:00Z",
+      "status": "no_food_detected",
+      "image_quality": {
+        "score": 0.90,
+        "issues": []
+      },
+      "items": [],
+      "meal_totals": {
+        "calories": 0,
+        "protein_g": 0,
+        "carbs_g": 0,
+        "fat_g": 0,
+        "fiber_g": 0
+      },
+      "requires_confirmation": false,
+      "confirmation_reason": "No food items detected in image",
+      "items_needing_confirmation": []
+    }
+  },
+  
+  "sample_pid_responses": {
+    "protein_deficit": {
+      "request_id": "pid_test001",
+      "timestamp": "2024-12-11T13:35:00Z",
+      "status": "success",
+      "user_id": "test_user_01",
+      "analysis_period": {
+        "today": "2024-12-11",
+        "week_start": "2024-12-04"
+      },
+      "current_status": {
+        "calories": {
+          "target": 2000,
+          "consumed": 1050,
+          "remaining": 950,
+          "percent_complete": 52.5
+        },
+        "protein_g": {
+          "target": 100,
+          "consumed": 45,
+          "remaining": 55,
+          "percent_complete": 45.0
+        },
+        "carbs_g": {
+          "target": 250,
+          "consumed": 140,
+          "remaining": 110,
+          "percent_complete": 56.0
+        },
+        "fat_g": {
+          "target": 65,
+          "consumed": 32,
+          "remaining": 33,
+          "percent_complete": 49.2
+        },
+        "fiber_g": {
+          "target": 28,
+          "consumed": 8,
+          "remaining": 20,
+          "percent_complete": 28.6
+        }
+      },
+      "recommendations": [
+        {
+          "priority": 1,
+          "nutrient": "protein",
+          "type": "deficit",
+          "severity": 0.58,
+          "pid_components": {
+            "p_contribution": 0.40,
+            "i_contribution": 0.13,
+            "d_contribution": 0.05
+          },
+          "current_gap": "55g remaining (45% of target consumed at 65% of day)",
+          "weekly_context": "Protein intake has been below target 5 of last 7 days",
+          "suggestion": "Your protein is running behind today. For dinner, consider adding tofu stir-fry, lentil soup, or Greek yogurt to close the gap.",
+          "food_suggestions": [
+            {"name": "Firm Tofu (1 cup cubed)", "protein_g": 20, "fits_preferences": true},
+            {"name": "Lentil Soup (1.5 cups)", "protein_g": 18, "fits_preferences": true},
+            {"name": "Greek Yogurt (1 cup)", "protein_g": 17, "fits_preferences": true}
+          ],
+          "action_type": "add_food"
+        },
+        {
+          "priority": 2,
+          "nutrient": "fiber",
+          "type": "deficit",
+          "severity": 0.52,
+          "pid_components": {
+            "p_contribution": 0.35,
+            "i_contribution": 0.12,
+            "d_contribution": 0.05
+          },
+          "current_gap": "20g remaining (28.6% of target consumed)",
+          "weekly_context": "Fiber has been consistently low all week",
+          "suggestion": "Add high-fiber foods to your remaining meals. A large salad with beans, or some berries would help significantly.",
+          "food_suggestions": [
+            {"name": "Black Beans (1 cup)", "fiber_g": 15, "fits_preferences": true},
+            {"name": "Raspberries (1 cup)", "fiber_g": 8, "fits_preferences": true},
+            {"name": "Chia Seeds (2 tbsp)", "fiber_g": 10, "fits_preferences": true}
+          ],
+          "action_type": "add_food"
+        }
+      ],
+      "daily_summary": {
+        "overall_score": 0.62,
+        "headline": "Good calorie balance, but protein and fiber need attention",
+        "encouragement": "You're making good choices! Focus on protein-rich vegetarian options for dinner to round out a great day.",
+        "streak_info": {
+          "current_streak": 3,
+          "best_streak": 7
+        }
+      },
+      "next_meal_suggestions": [
+        {
+          "meal_name": "Tofu and Vegetable Stir-Fry with Quinoa",
+          "estimated_nutrition": {
+            "calories": 520,
+            "protein_g": 28,
+            "carbs_g": 55,
+            "fat_g": 20,
+            "fiber_g": 10
+          },
+          "why": "High protein, high fiber, fits vegetarian preference"
+        },
+        {
+          "meal_name": "Lentil and Vegetable Curry with Brown Rice",
+          "estimated_nutrition": {
+            "calories": 480,
+            "protein_g": 22,
+            "carbs_g": 65,
+            "fat_g": 12,
+            "fiber_g": 14
+          },
+          "why": "Excellent fiber and protein, warming comfort food"
+        }
+      ]
+    },
+    
+    "on_track": {
+      "request_id": "pid_test002",
+      "timestamp": "2024-12-11T19:00:00Z",
+      "status": "success",
+      "user_id": "test_user_01",
+      "analysis_period": {
+        "today": "2024-12-11",
+        "week_start": "2024-12-04"
+      },
+      "current_status": {
+        "calories": {
+          "target": 2000,
+          "consumed": 1850,
+          "remaining": 150,
+          "percent_complete": 92.5
+        },
+        "protein_g": {
+          "target": 100,
+          "consumed": 95,
+          "remaining": 5,
+          "percent_complete": 95.0
+        },
+        "carbs_g": {
+          "target": 250,
+          "consumed": 230,
+          "remaining": 20,
+          "percent_complete": 92.0
+        },
+        "fat_g": {
+          "target": 65,
+          "consumed": 60,
+          "remaining": 5,
+          "percent_complete": 92.3
+        },
+        "fiber_g": {
+          "target": 28,
+          "consumed": 26,
+          "remaining": 2,
+          "percent_complete": 92.9
+        }
+      },
+      "recommendations": [
+        {
+          "priority": 1,
+          "nutrient": "overall",
+          "type": "goal_progress",
+          "severity": 0.1,
+          "suggestion": "You're doing great today! A small snack like some fruit or a handful of nuts would perfectly round out your nutrition.",
+          "food_suggestions": [
+            {"name": "Apple (1 medium)", "calories": 95, "fiber_g": 4, "fits_preferences": true},
+            {"name": "Almonds (1 oz)", "protein_g": 6, "calories": 160, "fits_preferences": true}
+          ],
+          "action_type": "add_food"
+        }
+      ],
+      "daily_summary": {
+        "overall_score": 0.92,
+        "headline": "Excellent day! All targets nearly met",
+        "encouragement": "Amazing work today! You've hit your targets across the board. Keep up this consistency!",
+        "streak_info": {
+          "current_streak": 4,
+          "best_streak": 7
+        }
+      },
+      "next_meal_suggestions": []
+    },
+    
+    "health_condition_high_severity": {
+      "request_id": "pid_test003",
+      "timestamp": "2024-12-11T12:30:00Z",
+      "status": "success",
+      "user_id": "test_user_02",
+      "analysis_period": {
+        "today": "2024-12-11",
+        "week_start": "2024-12-04"
+      },
+      "current_status": {
+        "calories": {
+          "target": 1800,
+          "consumed": 900,
+          "remaining": 900,
+          "percent_complete": 50.0
+        },
+        "protein_g": {
+          "target": 135,
+          "consumed": 40,
+          "remaining": 95,
+          "percent_complete": 29.6
+        },
+        "carbs_g": {
+          "target": 150,
+          "consumed": 95,
+          "remaining": 55,
+          "percent_complete": 63.3
+        },
+        "sugar_g": {
+          "target": 30,
+          "consumed": 28,
+          "remaining": 2,
+          "percent_complete": 93.3
+        }
+      },
+      "recommendations": [
+        {
+          "priority": 1,
+          "nutrient": "sugar",
+          "type": "surplus",
+          "severity": 0.78,
+          "pid_components": {
+            "p_contribution": 0.50,
+            "i_contribution": 0.20,
+            "d_contribution": 0.08
+          },
+          "current_gap": "Already at 93% of daily sugar limit",
+          "weekly_context": "Sugar has exceeded target 4 of last 7 days - important to monitor with Type 2 Diabetes",
+          "suggestion": "⚠️ You're nearly at your sugar limit for the day. For remaining meals, focus on protein and non-starchy vegetables. Avoid sweetened drinks and desserts.",
+          "food_suggestions": [],
+          "action_type": "moderate_intake"
+        },
+        {
+          "priority": 2,
+          "nutrient": "protein",
+          "type": "deficit",
+          "severity": 0.72,
+          "pid_components": {
+            "p_contribution": 0.50,
+            "i_contribution": 0.15,
+            "d_contribution": 0.07
+          },
+          "current_gap": "95g remaining (30% consumed at 50% of day)",
+          "weekly_context": "Protein has been low most days this week",
+          "suggestion": "Prioritize protein at your remaining meals. Try grilled chicken, fish, or eggs - they're low in carbs and sugar while high in protein.",
+          "food_suggestions": [
+            {"name": "Grilled Chicken Breast (6oz)", "protein_g": 42, "carbs_g": 0, "fits_preferences": true},
+            {"name": "Baked Cod (6oz)", "protein_g": 36, "carbs_g": 0, "fits_preferences": true},
+            {"name": "Scrambled Eggs (3 large)", "protein_g": 21, "carbs_g": 2, "fits_preferences": true}
+          ],
+          "action_type": "add_food"
+        }
+      ],
+      "daily_summary": {
+        "overall_score": 0.45,
+        "headline": "Sugar is high - focus on protein and vegetables for remaining meals",
+        "encouragement": "Managing blood sugar is a journey. Focus on protein-rich, low-sugar foods for the rest of today. You've got this!"
+      },
+      "next_meal_suggestions": [
+        {
+          "meal_name": "Grilled Chicken with Roasted Vegetables",
+          "estimated_nutrition": {
+            "calories": 380,
+            "protein_g": 45,
+            "carbs_g": 15,
+            "fat_g": 16,
+            "fiber_g": 5
+          },
+          "why": "High protein, low carb, very low sugar - ideal for blood sugar management"
+        }
+      ]
+    }
+  },
+  
+  "test_user_profiles": [
+    {
+      "id": "test_user_01",
+      "description": "Vegetarian maintaining weight",
+      "profile": {
+        "user_id": "test_user_01",
+        "age": 30,
+        "sex": "female",
+        "weight_kg": 65,
+        "height_cm": 168,
+        "activity_level": "moderately_active",
+        "primary_goal": "maintain_weight",
+        "goal_intensity": "moderate",
+        "dietary_preferences": "vegetarian",
+        "health_conditions": [],
+        "allergies": []
+      },
+      "daily_targets": {
+        "calories": 2000,
+        "protein_g": 100,
+        "carbs_g": 250,
+        "fat_g": 65,
+        "fiber_g": 28,
+        "sodium_mg": 2300,
+        "sugar_g": 50
+      }
+    },
+    {
+      "id": "test_user_02",
+      "description": "Type 2 diabetic losing weight",
+      "profile": {
+        "user_id": "test_user_02",
+        "age": 45,
+        "sex": "male",
+        "weight_kg": 90,
+        "height_cm": 180,
+        "activity_level": "sedentary",
+        "primary_goal": "lose_weight",
+        "goal_intensity": "strict",
+        "dietary_preferences": null,
+        "health_conditions": ["type_2_diabetes"],
+        "allergies": ["shellfish"]
+      },
+      "daily_targets": {
+        "calories": 1800,
+        "protein_g": 135,
+        "carbs_g": 150,
+        "fat_g": 60,
+        "fiber_g": 35,
+        "sodium_mg": 2000,
+        "sugar_g": 30
+      }
+    },
+    {
+      "id": "test_user_03",
+      "description": "Athlete building muscle",
+      "profile": {
+        "user_id": "test_user_03",
+        "age": 25,
+        "sex": "male",
+        "weight_kg": 75,
+        "height_cm": 178,
+        "activity_level": "very_active",
+        "primary_goal": "build_muscle",
+        "goal_intensity": "strict",
+        "dietary_preferences": null,
+        "health_conditions": [],
+        "allergies": ["tree_nuts", "peanuts"]
+      },
+      "daily_targets": {
+        "calories": 3000,
+        "protein_g": 180,
+        "carbs_g": 350,
+        "fat_g": 100,
+        "fiber_g": 35,
+        "sodium_mg": 3000,
+        "sugar_g": 75
+      }
+    }
+  ],
+  
+  "sample_weekly_summaries": {
+    "good_week": {
+      "avg_daily_calories": 1950,
+      "avg_daily_protein_g": 98,
+      "protein_goal_met_days": 5,
+      "fiber_goal_met_days": 4,
+      "trend_protein": "stable",
+      "trend_fiber": "improving"
+    },
+    "struggling_week": {
+      "avg_daily_calories": 2200,
+      "avg_daily_protein_g": 75,
+      "protein_goal_met_days": 2,
+      "fiber_goal_met_days": 1,
+      "trend_protein": "declining",
+      "trend_fiber": "stable_low"
+    },
+    "recovery_week": {
+      "avg_daily_calories": 1900,
+      "avg_daily_protein_g": 88,
+      "protein_goal_met_days": 4,
+      "fiber_goal_met_days": 3,
+      "trend_protein": "improving",
+      "trend_fiber": "improving"
+    }
+  }
+}
+

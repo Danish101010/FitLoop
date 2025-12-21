@@ -1,0 +1,248 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://fitloop.app/schemas/food_detect_response_v1.json",
+  "title": "FoodDetectResponse",
+  "description": "Response schema for Gemini Vision food detection API",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["request_id", "timestamp", "status", "items", "meal_totals"],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Unique identifier for this detection request",
+      "pattern": "^req_[a-zA-Z0-9]+$",
+      "example": "req_abc123"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the response"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "no_food_detected", "error"],
+      "description": "Overall status of the detection"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error details if status is 'error'"
+    },
+    "image_quality": {
+      "type": "object",
+      "description": "Assessment of input image quality",
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Overall image quality score (0-1)"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["too_dark", "too_bright", "blurry", "partial_view", "obstructed", "low_resolution"]
+          },
+          "description": "List of detected image quality issues"
+        }
+      },
+      "required": ["score", "issues"]
+    },
+    "items": {
+      "type": "array",
+      "description": "List of detected food items",
+      "items": {
+        "$ref": "#/definitions/FoodItem"
+      }
+    },
+    "meal_totals": {
+      "$ref": "#/definitions/NutritionTotals",
+      "description": "Aggregated nutrition for all detected items"
+    },
+    "requires_confirmation": {
+      "type": "boolean",
+      "description": "Whether user confirmation is needed for any items"
+    },
+    "confirmation_reason": {
+      "type": "string",
+      "description": "Human-readable reason for requiring confirmation"
+    },
+    "items_needing_confirmation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of item_ids that need user confirmation"
+    }
+  },
+  "definitions": {
+    "FoodItem": {
+      "type": "object",
+      "required": ["item_id", "food_name", "food_category", "portion", "identification", "nutrition"],
+      "properties": {
+        "item_id": {
+          "type": "string",
+          "description": "Unique identifier for this food item within the meal",
+          "pattern": "^item_[0-9]{3}$"
+        },
+        "food_name": {
+          "type": "string",
+          "description": "Identified food name",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "food_category": {
+          "type": "string",
+          "enum": ["protein", "carbohydrate", "vegetable", "fruit", "dairy", "fat", "beverage", "condiment", "mixed_dish", "snack", "dessert", "other"],
+          "description": "Primary nutritional category"
+        },
+        "portion": {
+          "$ref": "#/definitions/Portion"
+        },
+        "identification": {
+          "$ref": "#/definitions/Identification"
+        },
+        "nutrition": {
+          "$ref": "#/definitions/Nutrition"
+        },
+        "preparation_method": {
+          "type": "string",
+          "enum": ["raw", "boiled", "steamed", "grilled", "fried", "baked", "roasted", "sauteed", "poached", "unknown"],
+          "description": "Detected cooking/preparation method"
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["portion_uncertain", "food_partially_hidden", "multiple_items_grouped", "sauce_estimated", "cooking_method_assumed"]
+          },
+          "description": "Flags indicating estimation uncertainties"
+        }
+      }
+    },
+    "Portion": {
+      "type": "object",
+      "required": ["grams", "household_measure", "confidence"],
+      "properties": {
+        "grams": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 5000,
+          "description": "Estimated weight in grams (rounded to nearest 5g)"
+        },
+        "household_measure": {
+          "type": "string",
+          "description": "Human-readable portion description",
+          "example": "1 cup", "1 medium apple", "2 slices"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score for portion estimation (0-1)"
+        }
+      }
+    },
+    "Identification": {
+      "type": "object",
+      "required": ["confidence"],
+      "properties": {
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score for food identification (0-1)"
+        },
+        "alternatives": {
+          "type": "array",
+          "description": "Alternative food identifications if confidence < 0.8",
+          "items": {
+            "type": "object",
+            "required": ["name", "confidence"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Alternative food name"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Confidence for this alternative"
+              }
+            }
+          },
+          "maxItems": 3
+        }
+      }
+    },
+    "Nutrition": {
+      "type": "object",
+      "required": ["calories", "protein_g", "carbs_g", "fat_g"],
+      "properties": {
+        "calories": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total calories (kcal)"
+        },
+        "protein_g": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Protein in grams"
+        },
+        "carbs_g": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Carbohydrates in grams"
+        },
+        "fat_g": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Fat in grams"
+        },
+        "fiber_g": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Dietary fiber in grams"
+        },
+        "sodium_mg": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Sodium in milligrams"
+        },
+        "sugar_g": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total sugars in grams"
+        }
+      }
+    },
+    "NutritionTotals": {
+      "type": "object",
+      "required": ["calories", "protein_g", "carbs_g", "fat_g"],
+      "properties": {
+        "calories": {
+          "type": "number",
+          "minimum": 0
+        },
+        "protein_g": {
+          "type": "number",
+          "minimum": 0
+        },
+        "carbs_g": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fat_g": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fiber_g": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+

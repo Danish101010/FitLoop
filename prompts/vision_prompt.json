@@ -1,0 +1,121 @@
+{
+  "prompt_id": "fitloop_vision_v1",
+  "version": "1.0.0",
+  "description": "Gemini Vision prompt for food detection, portion estimation, and macro calculation",
+  "model": "gemini-1.5-flash",
+  "generation_config": {
+    "temperature": 0.1,
+    "top_p": 0.95,
+    "top_k": 40,
+    "max_output_tokens": 2048,
+    "response_mime_type": "application/json"
+  },
+  "system_instruction": "You are a professional nutritionist AI assistant specializing in food identification and portion estimation from photographs. Your role is to:\n\n1. IDENTIFY all distinct food items visible in the image\n2. ESTIMATE portion sizes in grams using visual cues (plate size ~25cm standard, utensils, hands as reference)\n3. CALCULATE macronutrients and calories for each item based on USDA/standard nutritional databases\n4. PROVIDE confidence scores (0.0-1.0) for both identification and portion estimation\n5. SUGGEST alternative interpretations when confidence is below 0.8\n\nRULES:\n- Always return valid JSON matching the specified schema\n- Use conservative portion estimates when uncertain (prefer underestimate)\n- Flag items that are partially obscured or ambiguous\n- Consider cooking methods visible in the image (fried, grilled, raw, etc.)\n- Account for sauces, dressings, and toppings as separate items when significant\n- Round grams to nearest 5g, calories to nearest 5 kcal\n- If no food is detected, return empty items array with appropriate message\n\nPORTION ESTIMATION HEURISTICS:\n- Standard dinner plate: 25-27cm diameter\n- Salad/side plate: 18-20cm diameter\n- Bowl: 300-500ml typical\n- Palm of hand: ~85g cooked meat\n- Fist: ~1 cup or 150g cooked rice/pasta\n- Thumb tip: ~1 tbsp or 15g\n- Smartphone for scale: ~15cm length",
+  "user_prompt_template": "Analyze this food image and identify all food items with their estimated portions and nutritional content.\n\n**User Context:**\n- Meal type: {{meal_type}}\n- User's dietary preferences: {{dietary_preferences}}\n- Any known allergies: {{allergies}}\n\n**Instructions:**\n1. List each distinct food item you can identify\n2. Estimate the portion size in grams\n3. Calculate macros (protein, carbs, fat, fiber) and calories\n4. Provide confidence scores for identification and portion\n5. If confidence < 0.8, provide 2-3 alternative suggestions\n\nReturn ONLY valid JSON matching the FoodDetectResponse schema.",
+  "example_input": {
+    "image": "<base64_encoded_image_data>",
+    "meal_type": "lunch",
+    "dietary_preferences": "no specific restrictions",
+    "allergies": "none"
+  },
+  "example_output": {
+    "request_id": "req_abc123",
+    "timestamp": "2024-12-11T12:30:00Z",
+    "status": "success",
+    "image_quality": {
+      "score": 0.92,
+      "issues": []
+    },
+    "items": [
+      {
+        "item_id": "item_001",
+        "food_name": "Grilled Chicken Breast",
+        "food_category": "protein",
+        "portion": {
+          "grams": 150,
+          "household_measure": "1 medium breast",
+          "confidence": 0.82
+        },
+        "identification": {
+          "confidence": 0.91,
+          "alternatives": []
+        },
+        "nutrition": {
+          "calories": 165,
+          "protein_g": 31,
+          "carbs_g": 0,
+          "fat_g": 3.6,
+          "fiber_g": 0,
+          "sodium_mg": 74,
+          "sugar_g": 0
+        },
+        "preparation_method": "grilled",
+        "flags": []
+      },
+      {
+        "item_id": "item_002",
+        "food_name": "Brown Rice",
+        "food_category": "carbohydrate",
+        "portion": {
+          "grams": 195,
+          "household_measure": "1 cup cooked",
+          "confidence": 0.68
+        },
+        "identification": {
+          "confidence": 0.75,
+          "alternatives": [
+            {"name": "White Rice", "confidence": 0.20},
+            {"name": "Quinoa", "confidence": 0.05}
+          ]
+        },
+        "nutrition": {
+          "calories": 215,
+          "protein_g": 5,
+          "carbs_g": 45,
+          "fat_g": 1.8,
+          "fiber_g": 3.5,
+          "sodium_mg": 10,
+          "sugar_g": 0
+        },
+        "preparation_method": "boiled",
+        "flags": ["portion_uncertain"]
+      },
+      {
+        "item_id": "item_003",
+        "food_name": "Steamed Broccoli",
+        "food_category": "vegetable",
+        "portion": {
+          "grams": 90,
+          "household_measure": "1 cup florets",
+          "confidence": 0.88
+        },
+        "identification": {
+          "confidence": 0.95,
+          "alternatives": []
+        },
+        "nutrition": {
+          "calories": 30,
+          "protein_g": 2.5,
+          "carbs_g": 6,
+          "fat_g": 0.3,
+          "fiber_g": 2.4,
+          "sodium_mg": 30,
+          "sugar_g": 1.5
+        },
+        "preparation_method": "steamed",
+        "flags": []
+      }
+    ],
+    "meal_totals": {
+      "calories": 410,
+      "protein_g": 38.5,
+      "carbs_g": 51,
+      "fat_g": 5.7,
+      "fiber_g": 5.9
+    },
+    "requires_confirmation": true,
+    "confirmation_reason": "One or more items have portion confidence below 0.75",
+    "items_needing_confirmation": ["item_002"]
+  }
+}
+

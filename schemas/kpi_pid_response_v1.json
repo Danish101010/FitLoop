@@ -1,0 +1,285 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://fitloop.app/schemas/kpi_pid_response_v1.json",
+  "title": "KpiPidResponse",
+  "description": "Response schema for Gemini PID nutritional analysis API",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["request_id", "timestamp", "status", "current_status", "recommendations", "daily_summary"],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Unique identifier for this PID analysis request",
+      "pattern": "^pid_[a-zA-Z0-9]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the response"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "error"],
+      "description": "Overall status of the analysis"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error details if status is 'error'"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User identifier for this analysis"
+    },
+    "analysis_period": {
+      "type": "object",
+      "properties": {
+        "today": {
+          "type": "string",
+          "format": "date",
+          "description": "Current day being analyzed"
+        },
+        "week_start": {
+          "type": "string",
+          "format": "date",
+          "description": "Start of the 7-day lookback period"
+        }
+      },
+      "required": ["today", "week_start"]
+    },
+    "current_status": {
+      "type": "object",
+      "description": "Current nutritional status vs targets",
+      "additionalProperties": {
+        "$ref": "#/definitions/NutrientStatus"
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "description": "Prioritized list of nutritional recommendations",
+      "items": {
+        "$ref": "#/definitions/Recommendation"
+      },
+      "maxItems": 5
+    },
+    "daily_summary": {
+      "$ref": "#/definitions/DailySummary"
+    },
+    "next_meal_suggestions": {
+      "type": "array",
+      "description": "Suggested meals to optimize remaining nutrition",
+      "items": {
+        "$ref": "#/definitions/MealSuggestion"
+      },
+      "maxItems": 3
+    }
+  },
+  "definitions": {
+    "NutrientStatus": {
+      "type": "object",
+      "required": ["target", "consumed", "remaining", "percent_complete"],
+      "properties": {
+        "target": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Daily target value"
+        },
+        "consumed": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Amount consumed so far today"
+        },
+        "remaining": {
+          "type": "number",
+          "description": "Amount remaining (can be negative for surplus)"
+        },
+        "percent_complete": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Percentage of target consumed"
+        }
+      }
+    },
+    "Recommendation": {
+      "type": "object",
+      "required": ["priority", "nutrient", "type", "severity", "suggestion"],
+      "properties": {
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Priority ranking (1 = highest)"
+        },
+        "nutrient": {
+          "type": "string",
+          "description": "The nutrient this recommendation addresses",
+          "enum": ["calories", "protein", "carbs", "fat", "fiber", "sodium", "sugar", "water", "vitamins", "minerals"]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["deficit", "surplus", "trend_warning", "goal_progress"],
+          "description": "Type of nutritional concern"
+        },
+        "severity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Severity score (0.0-1.0) calculated using PID principles"
+        },
+        "pid_components": {
+          "type": "object",
+          "description": "Breakdown of PID contributions to severity",
+          "properties": {
+            "p_contribution": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Proportional (today's gap) contribution"
+            },
+            "i_contribution": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Integral (weekly accumulation) contribution"
+            },
+            "d_contribution": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Derivative (trend) contribution"
+            }
+          }
+        },
+        "current_gap": {
+          "type": "string",
+          "description": "Human-readable description of current gap"
+        },
+        "weekly_context": {
+          "type": "string",
+          "description": "Context from the past 7 days"
+        },
+        "suggestion": {
+          "type": "string",
+          "description": "Actionable, supportive recommendation text",
+          "minLength": 10,
+          "maxLength": 500
+        },
+        "food_suggestions": {
+          "type": "array",
+          "description": "Specific foods to address this recommendation",
+          "items": {
+            "$ref": "#/definitions/FoodSuggestion"
+          },
+          "maxItems": 5
+        },
+        "action_type": {
+          "type": "string",
+          "enum": ["add_food", "moderate_intake", "substitute", "timing_adjustment", "hydration"],
+          "description": "Category of action to take"
+        }
+      }
+    },
+    "FoodSuggestion": {
+      "type": "object",
+      "required": ["name", "fits_preferences"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Food name with typical portion"
+        },
+        "protein_g": {
+          "type": "number",
+          "minimum": 0
+        },
+        "carbs_g": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fat_g": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fiber_g": {
+          "type": "number",
+          "minimum": 0
+        },
+        "calories": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fits_preferences": {
+          "type": "boolean",
+          "description": "Whether this food fits user's dietary preferences"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional note about this suggestion"
+        }
+      }
+    },
+    "DailySummary": {
+      "type": "object",
+      "required": ["overall_score", "headline"],
+      "properties": {
+        "overall_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Overall nutrition score for today (0-1)"
+        },
+        "headline": {
+          "type": "string",
+          "description": "One-line summary of nutritional status",
+          "maxLength": 150
+        },
+        "encouragement": {
+          "type": "string",
+          "description": "Supportive message for the user",
+          "maxLength": 300
+        },
+        "streak_info": {
+          "type": "object",
+          "properties": {
+            "current_streak": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Days in a row meeting primary goal"
+            },
+            "best_streak": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "MealSuggestion": {
+      "type": "object",
+      "required": ["meal_name", "estimated_nutrition", "why"],
+      "properties": {
+        "meal_name": {
+          "type": "string",
+          "description": "Suggested meal name"
+        },
+        "estimated_nutrition": {
+          "type": "object",
+          "properties": {
+            "calories": { "type": "number" },
+            "protein_g": { "type": "number" },
+            "carbs_g": { "type": "number" },
+            "fat_g": { "type": "number" },
+            "fiber_g": { "type": "number" }
+          }
+        },
+        "why": {
+          "type": "string",
+          "description": "Explanation of why this meal is suggested"
+        },
+        "recipe_hint": {
+          "type": "string",
+          "description": "Brief preparation hint"
+        }
+      }
+    }
+  }
+}
+

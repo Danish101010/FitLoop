@@ -1,0 +1,651 @@
+openapi: 3.1.0
+info:
+  title: FitLoop API
+  description: |
+    AI-powered food logging and nutrition analysis API.
+    
+    ## Authentication
+    MVP uses optional Bearer token authentication. Include `Authorization: Bearer <token>` header for authenticated requests.
+    Unauthenticated requests work with a demo user for testing.
+    
+    ## Meal Logging Flow
+    The standard flow for logging a meal:
+    1. **POST /api/v1/meals/analyze** - Upload food image, get detected items
+    2. **POST /api/v1/meals/{meal_id}/confirm** - Confirm or correct detected items
+    3. **POST /api/v1/meals/{meal_id}/pid** - Get PID-based nutritional recommendations
+    
+    For high-confidence detections, use **POST /api/v1/meals/quick-log** to combine all steps.
+    
+  version: 1.0.0
+  contact:
+    name: FitLoop Support
+    email: support@fitloop.app
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.fitloop.app
+    description: Production
+
+tags:
+  - name: Meals
+    description: Food logging and analysis endpoints
+  - name: System
+    description: Health and status endpoints
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/meals/analyze:
+    post:
+      tags: [Meals]
+      summary: Analyze food image
+      description: |
+        Upload a food image for AI analysis. Returns detected food items with 
+        portion estimates, nutrition info, and confidence scores.
+        
+        **Response behavior:**
+        - If all items have high confidence → `next_step: "pid_analysis"`
+        - If any item needs confirmation → `next_step: "confirm"`
+        - If analysis fails → `error: "manual_entry_required"`
+      operationId: analyzeMeal
+      security:
+        - BearerAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeMealRequest'
+            example:
+              image_base64: "/9j/4AAQSkZJRg..."
+              meal_type: "lunch"
+              dietary_preferences: "vegetarian"
+              allergies: "peanuts"
+      responses:
+        '200':
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeMealResponse'
+              examples:
+                success:
+                  summary: Successful analysis
+                  value:
+                    success: true
+                    meal_id: "meal_abc123"
+                    detection:
+                      request_id: "req_xyz789"
+                      status: "success"
+                      items:
+                        - item_id: "item_001"
+                          food_name: "Grilled Chicken"
+                          portion:
+                            grams: 150
+                            confidence: 0.85
+                          identification:
+                            confidence: 0.92
+                      requires_confirmation: false
+                    next_step: "pid_analysis"
+                needs_confirmation:
+                  summary: Needs user confirmation
+                  value:
+                    success: true
+                    meal_id: "meal_def456"
+                    detection:
+                      items:
+                        - item_id: "item_001"
+                          food_name: "Rice"
+                          identification:
+                            confidence: 0.72
+                            alternatives:
+                              - name: "Quinoa"
+                                confidence: 0.15
+                      requires_confirmation: true
+                      items_needing_confirmation: ["item_001"]
+                    next_step: "confirm"
+        '400':
+          description: Invalid request
+        '500':
+          description: Server error
+
+  /api/v1/meals/{meal_id}/confirm:
+    post:
+      tags: [Meals]
+      summary: Confirm or correct meal
+      description: |
+        Submit confirmed or corrected food items for a meal.
+        User corrections are logged for future model improvement.
+      operationId: confirmMeal
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: meal_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "meal_abc123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmMealRequest'
+      responses:
+        '200':
+          description: Meal confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmMealResponse'
+        '404':
+          description: Meal not found
+
+  /api/v1/meals/{meal_id}/pid:
+    post:
+      tags: [Meals]
+      summary: Run PID analysis
+      description: |
+        Get personalized nutritional recommendations based on PID 
+        (Proportional-Integral-Derivative) analysis of the user's intake.
+      operationId: runPidAnalysis
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: meal_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PidAnalysisRequest'
+      responses:
+        '200':
+          description: PID analysis complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PidAnalysisResponse'
+        '400':
+          description: Meal not confirmed yet
+        '404':
+          description: Meal not found
+
+  /api/v1/meals/quick-log:
+    post:
+      tags: [Meals]
+      summary: Quick log (combined flow)
+      description: |
+        Combined endpoint for high-confidence meals.
+        Performs analyze → auto-confirm → PID in one call.
+        Falls back to standard flow if confirmation is needed.
+      operationId: quickLogMeal
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request, pid_request]
+              properties:
+                request:
+                  $ref: '#/components/schemas/AnalyzeMealRequest'
+                pid_request:
+                  $ref: '#/components/schemas/PidAnalysisRequest'
+      responses:
+        '200':
+          description: Meal logged successfully
+
+  /api/v1/meals/manual:
+    post:
+      tags: [Meals]
+      summary: Manual meal entry
+      description: |
+        Log a meal manually without image analysis.
+        Use when image analysis fails or user prefers typing.
+      operationId: manualMealEntry
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, meal_type]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FoodItem'
+                meal_type:
+                  $ref: '#/components/schemas/MealType'
+      responses:
+        '200':
+          description: Meal logged
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: JWT authentication token
+
+  schemas:
+    MealType:
+      type: string
+      enum: [breakfast, lunch, dinner, snack]
+
+    HealthResponse:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        version:
+          type: string
+          example: "1.0.0"
+
+    AnalyzeMealRequest:
+      type: object
+      required: [image_base64, meal_type]
+      properties:
+        image_base64:
+          type: string
+          description: Base64 encoded image data
+        meal_type:
+          $ref: '#/components/schemas/MealType'
+        dietary_preferences:
+          type: string
+          default: "no specific restrictions"
+        allergies:
+          type: string
+          default: "none"
+        user_notes:
+          type: string
+
+    AnalyzeMealResponse:
+      type: object
+      required: [success, meal_id]
+      properties:
+        success:
+          type: boolean
+        meal_id:
+          type: string
+        detection:
+          $ref: '#/components/schemas/FoodDetectResponse'
+        next_step:
+          type: string
+          enum: [confirm, pid_analysis]
+        error:
+          type: string
+        message:
+          type: string
+
+    FoodDetectResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [success, partial, no_food_detected, error]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FoodItem'
+        meal_totals:
+          $ref: '#/components/schemas/NutritionTotals'
+        requires_confirmation:
+          type: boolean
+        confirmation_reason:
+          type: string
+        items_needing_confirmation:
+          type: array
+          items:
+            type: string
+
+    FoodItem:
+      type: object
+      required: [item_id, food_name, food_category, portion, identification, nutrition]
+      properties:
+        item_id:
+          type: string
+          pattern: '^item_[0-9]{3}$'
+        food_name:
+          type: string
+        food_category:
+          type: string
+          enum: [protein, carbohydrate, vegetable, fruit, dairy, fat, beverage, condiment, mixed_dish, snack, dessert, other]
+        portion:
+          $ref: '#/components/schemas/Portion'
+        identification:
+          $ref: '#/components/schemas/Identification'
+        nutrition:
+          $ref: '#/components/schemas/Nutrition'
+        preparation_method:
+          type: string
+        flags:
+          type: array
+          items:
+            type: string
+
+    Portion:
+      type: object
+      required: [grams, household_measure, confidence]
+      properties:
+        grams:
+          type: number
+          minimum: 1
+          maximum: 5000
+        household_measure:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    Identification:
+      type: object
+      required: [confidence]
+      properties:
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        alternatives:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              confidence:
+                type: number
+
+    Nutrition:
+      type: object
+      required: [calories, protein_g, carbs_g, fat_g]
+      properties:
+        calories:
+          type: number
+        protein_g:
+          type: number
+        carbs_g:
+          type: number
+        fat_g:
+          type: number
+        fiber_g:
+          type: number
+        sodium_mg:
+          type: number
+        sugar_g:
+          type: number
+
+    NutritionTotals:
+      type: object
+      properties:
+        calories:
+          type: number
+        protein_g:
+          type: number
+        carbs_g:
+          type: number
+        fat_g:
+          type: number
+        fiber_g:
+          type: number
+
+    ConfirmMealRequest:
+      type: object
+      required: [meal_id, items]
+      properties:
+        meal_id:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FoodItem'
+        user_confirmed:
+          type: boolean
+          default: true
+
+    ConfirmMealResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        meal_id:
+          type: string
+        confirmed_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FoodItem'
+        meal_totals:
+          $ref: '#/components/schemas/NutritionTotals'
+        was_corrected:
+          type: boolean
+        next_step:
+          type: string
+
+    PidAnalysisRequest:
+      type: object
+      required: [user_profile, daily_targets, todays_intake, weekly_summary, current_meal_type, time_of_day, meals_remaining]
+      properties:
+        user_profile:
+          $ref: '#/components/schemas/UserProfile'
+        daily_targets:
+          $ref: '#/components/schemas/DailyTargets'
+        todays_intake:
+          $ref: '#/components/schemas/TodaysIntake'
+        weekly_summary:
+          $ref: '#/components/schemas/WeeklySummary'
+        current_meal_type:
+          $ref: '#/components/schemas/MealType'
+        time_of_day:
+          type: string
+          pattern: '^[0-9]{2}:[0-9]{2}$'
+        meals_remaining:
+          type: integer
+          minimum: 0
+
+    UserProfile:
+      type: object
+      required: [user_id, age, sex, weight_kg, height_cm, activity_level, primary_goal]
+      properties:
+        user_id:
+          type: string
+        age:
+          type: integer
+          minimum: 1
+          maximum: 120
+        sex:
+          type: string
+          enum: [male, female, other]
+        weight_kg:
+          type: number
+        height_cm:
+          type: number
+        activity_level:
+          type: string
+          enum: [sedentary, lightly_active, moderately_active, very_active, extremely_active]
+        primary_goal:
+          type: string
+          enum: [lose_weight, maintain_weight, gain_weight, build_muscle, improve_health]
+        goal_intensity:
+          type: string
+          enum: [relaxed, moderate, strict]
+          default: moderate
+        dietary_preferences:
+          type: string
+        health_conditions:
+          type: array
+          items:
+            type: string
+        allergies:
+          type: array
+          items:
+            type: string
+
+    DailyTargets:
+      type: object
+      required: [calories, protein_g, carbs_g, fat_g]
+      properties:
+        calories:
+          type: number
+        protein_g:
+          type: number
+        carbs_g:
+          type: number
+        fat_g:
+          type: number
+        fiber_g:
+          type: number
+        sodium_mg:
+          type: number
+        sugar_g:
+          type: number
+
+    TodaysIntake:
+      type: object
+      required: [meals_logged, totals]
+      properties:
+        meals_logged:
+          type: integer
+        totals:
+          $ref: '#/components/schemas/NutritionTotals'
+
+    WeeklySummary:
+      type: object
+      properties:
+        avg_daily_calories:
+          type: number
+        avg_daily_protein_g:
+          type: number
+        protein_goal_met_days:
+          type: integer
+        fiber_goal_met_days:
+          type: integer
+        trend_protein:
+          type: string
+          enum: [improving, stable, declining, stable_low, stable_high]
+        trend_fiber:
+          type: string
+          enum: [improving, stable, declining, stable_low, stable_high]
+
+    PidAnalysisResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        analysis:
+          $ref: '#/components/schemas/KpiPidResponse'
+        error:
+          type: string
+        message:
+          type: string
+
+    KpiPidResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: string
+        current_status:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/NutrientStatus'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+        daily_summary:
+          $ref: '#/components/schemas/DailySummary'
+        next_meal_suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealSuggestion'
+
+    NutrientStatus:
+      type: object
+      properties:
+        target:
+          type: number
+        consumed:
+          type: number
+        remaining:
+          type: number
+        percent_complete:
+          type: number
+
+    Recommendation:
+      type: object
+      properties:
+        priority:
+          type: integer
+        nutrient:
+          type: string
+        type:
+          type: string
+          enum: [deficit, surplus, trend_warning, goal_progress]
+        severity:
+          type: number
+          minimum: 0
+          maximum: 1
+        suggestion:
+          type: string
+        food_suggestions:
+          type: array
+          items:
+            type: object
+        action_type:
+          type: string
+
+    DailySummary:
+      type: object
+      properties:
+        overall_score:
+          type: number
+        headline:
+          type: string
+        encouragement:
+          type: string
+
+    MealSuggestion:
+      type: object
+      properties:
+        meal_name:
+          type: string
+        estimated_nutrition:
+          $ref: '#/components/schemas/NutritionTotals'
+        why:
+          type: string
+

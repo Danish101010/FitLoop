@@ -1,0 +1,189 @@
+{
+  "prompt_id": "fitloop_pid_v1",
+  "version": "1.0.0",
+  "description": "Gemini PID analysis prompt for nutritional recommendations based on daily/weekly intake and user profile",
+  "model": "gemini-1.5-flash",
+  "generation_config": {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "top_k": 40,
+    "max_output_tokens": 1536,
+    "response_mime_type": "application/json"
+  },
+  "system_instruction": "You are a professional nutritionist AI providing personalized dietary guidance using PID (Proportional-Integral-Derivative) analysis principles:\n\n**P (Proportional):** React to TODAY's nutritional gaps or surpluses\n**I (Integral):** Consider ACCUMULATED patterns over the past 7 days\n**D (Derivative):** Note TRENDS and rate of change in intake\n\nYour role is to:\n1. ANALYZE the user's current nutritional status against their targets\n2. CALCULATE severity scores (0.0-1.0) for each nutritional concern\n3. GENERATE actionable, supportive recommendations\n4. PRIORITIZE suggestions by impact and urgency\n5. SUGGEST specific foods that would help address deficiencies\n\nRULES:\n- Always return valid JSON matching the KpiPidResponse schema\n- Be supportive and non-judgmental in language\n- Severity 0.0-0.3: gentle suggestion, 0.3-0.6: clear recommendation, 0.6-1.0: important action\n- Consider the user's dietary preferences and restrictions\n- Account for health conditions when flagged (increase severity for relevant nutrients)\n- Maximum 5 recommendations per response, prioritized by severity\n- Provide specific, actionable food suggestions (not generic advice)\n- Consider meal timing (if this is breakfast, don't suggest dinner-heavy foods)\n\nSEVERITY CALCULATION:\n- < 10% deviation from target: severity 0.1-0.2\n- 10-20% deviation: severity 0.2-0.4\n- 20-35% deviation: severity 0.4-0.6\n- 35-50% deviation: severity 0.6-0.8\n- > 50% deviation: severity 0.8-1.0\n- Health conditions related to nutrient: multiply severity by 1.3\n- Strict goals flagged: multiply severity by 1.2\n\nTONE:\n- Moderate intensity (default): supportive coach\n- Be encouraging, focus on \"adding good\" rather than \"avoiding bad\"\n- Use phrases like \"Consider adding...\" \"Great opportunity to...\" \"You might enjoy...\"",
+  "user_prompt_template": "Analyze the user's nutritional intake and provide personalized PID-based recommendations.\n\n**User Profile:**\n- Age: {{age}}\n- Sex: {{sex}}\n- Weight: {{weight_kg}} kg\n- Height: {{height_cm}} cm\n- Activity level: {{activity_level}}\n- Primary goal: {{primary_goal}}\n- Goal intensity: {{goal_intensity}}\n- Dietary preferences: {{dietary_preferences}}\n- Health conditions: {{health_conditions}}\n- Allergies: {{allergies}}\n\n**Daily Targets:**\n{{daily_targets}}\n\n**Today's Intake (so far):**\n{{todays_intake}}\n\n**Past 7 Days Summary:**\n{{weekly_summary}}\n\n**Current Meal Context:**\n- Meal just logged: {{current_meal_type}}\n- Time of day: {{time_of_day}}\n- Meals remaining today (estimated): {{meals_remaining}}\n\n**Instructions:**\n1. Calculate current status vs targets for key nutrients\n2. Identify the top nutritional priorities (max 5)\n3. For each, calculate severity (0.0-1.0) using PID principles\n4. Provide specific, actionable recommendations\n5. Suggest concrete foods that fit the user's preferences\n\nReturn ONLY valid JSON matching the KpiPidResponse schema.",
+  "example_input": {
+    "age": 32,
+    "sex": "female",
+    "weight_kg": 65,
+    "height_cm": 168,
+    "activity_level": "moderately_active",
+    "primary_goal": "maintain_weight",
+    "goal_intensity": "moderate",
+    "dietary_preferences": "pescatarian",
+    "health_conditions": [],
+    "allergies": ["tree_nuts"],
+    "daily_targets": {
+      "calories": 2000,
+      "protein_g": 120,
+      "carbs_g": 225,
+      "fat_g": 67,
+      "fiber_g": 28,
+      "sodium_mg": 2300,
+      "sugar_g": 50
+    },
+    "todays_intake": {
+      "meals_logged": 2,
+      "totals": {
+        "calories": 1050,
+        "protein_g": 45,
+        "carbs_g": 140,
+        "fat_g": 32,
+        "fiber_g": 8,
+        "sodium_mg": 1800,
+        "sugar_g": 25
+      }
+    },
+    "weekly_summary": {
+      "avg_daily_calories": 1850,
+      "avg_daily_protein_g": 95,
+      "protein_goal_met_days": 2,
+      "fiber_goal_met_days": 1,
+      "trend_protein": "declining",
+      "trend_fiber": "stable_low"
+    },
+    "current_meal_type": "lunch",
+    "time_of_day": "13:30",
+    "meals_remaining": 2
+  },
+  "example_output": {
+    "request_id": "pid_xyz789",
+    "timestamp": "2024-12-11T13:35:00Z",
+    "status": "success",
+    "user_id": "user_123",
+    "analysis_period": {
+      "today": "2024-12-11",
+      "week_start": "2024-12-04"
+    },
+    "current_status": {
+      "calories": {
+        "target": 2000,
+        "consumed": 1050,
+        "remaining": 950,
+        "percent_complete": 52.5
+      },
+      "protein_g": {
+        "target": 120,
+        "consumed": 45,
+        "remaining": 75,
+        "percent_complete": 37.5
+      },
+      "carbs_g": {
+        "target": 225,
+        "consumed": 140,
+        "remaining": 85,
+        "percent_complete": 62.2
+      },
+      "fat_g": {
+        "target": 67,
+        "consumed": 32,
+        "remaining": 35,
+        "percent_complete": 47.8
+      },
+      "fiber_g": {
+        "target": 28,
+        "consumed": 8,
+        "remaining": 20,
+        "percent_complete": 28.6
+      }
+    },
+    "recommendations": [
+      {
+        "priority": 1,
+        "nutrient": "protein",
+        "type": "deficit",
+        "severity": 0.65,
+        "pid_components": {
+          "p_contribution": 0.45,
+          "i_contribution": 0.15,
+          "d_contribution": 0.05
+        },
+        "current_gap": "-75g remaining (37.5% of target consumed at 65% of day)",
+        "weekly_context": "Protein intake has been declining; only met target 2 of last 7 days",
+        "suggestion": "Your protein is running behind today, and this has been a pattern this week. For dinner, consider grilled salmon (40g protein) or shrimp stir-fry (35g protein) to close the gap.",
+        "food_suggestions": [
+          {"name": "Grilled Salmon (6oz)", "protein_g": 40, "fits_preferences": true},
+          {"name": "Shrimp Stir-fry (8oz)", "protein_g": 35, "fits_preferences": true},
+          {"name": "Greek Yogurt (1 cup)", "protein_g": 17, "fits_preferences": true}
+        ],
+        "action_type": "add_food"
+      },
+      {
+        "priority": 2,
+        "nutrient": "fiber",
+        "type": "deficit",
+        "severity": 0.55,
+        "pid_components": {
+          "p_contribution": 0.35,
+          "i_contribution": 0.15,
+          "d_contribution": 0.05
+        },
+        "current_gap": "-20g remaining (28.6% of target consumed)",
+        "weekly_context": "Fiber has been consistently low; met target only 1 of last 7 days",
+        "suggestion": "Consider adding high-fiber sides to your remaining meals. A cup of lentils, a large salad with beans, or berries with your snack would help significantly.",
+        "food_suggestions": [
+          {"name": "Lentils (1 cup cooked)", "fiber_g": 15.5, "fits_preferences": true},
+          {"name": "Black Beans (1 cup)", "fiber_g": 15, "fits_preferences": true},
+          {"name": "Raspberries (1 cup)", "fiber_g": 8, "fits_preferences": true}
+        ],
+        "action_type": "add_food"
+      },
+      {
+        "priority": 3,
+        "nutrient": "sodium",
+        "type": "surplus",
+        "severity": 0.35,
+        "pid_components": {
+          "p_contribution": 0.30,
+          "i_contribution": 0.05,
+          "d_contribution": 0.00
+        },
+        "current_gap": "Already at 78% of daily limit with meals remaining",
+        "weekly_context": "Sodium has been within range most days",
+        "suggestion": "You're approaching your sodium limit. For dinner, opt for fresh-prepared foods and go easy on added salt and soy sauce.",
+        "food_suggestions": [],
+        "action_type": "moderate_intake"
+      }
+    ],
+    "daily_summary": {
+      "overall_score": 0.68,
+      "headline": "Good progress on carbs and calories, but protein and fiber need attention",
+      "encouragement": "You're making solid choices! Adding a protein-rich dinner with some legumes or vegetables will round out a great nutrition day."
+    },
+    "next_meal_suggestions": [
+      {
+        "meal_name": "Grilled Salmon with Lentils and Roasted Vegetables",
+        "estimated_nutrition": {
+          "calories": 550,
+          "protein_g": 48,
+          "carbs_g": 35,
+          "fat_g": 22,
+          "fiber_g": 12
+        },
+        "why": "Addresses both protein and fiber gaps while staying within calorie budget"
+      },
+      {
+        "meal_name": "Shrimp and Black Bean Tacos with Cabbage Slaw",
+        "estimated_nutrition": {
+          "calories": 480,
+          "protein_g": 38,
+          "carbs_g": 42,
+          "fat_g": 18,
+          "fiber_g": 10
+        },
+        "why": "High protein, good fiber, fits pescatarian preference"
+      }
+    ]
+  }
+}
+
