@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, date
 from typing import Optional
 import secrets
+from pydantic import ValidationError
 
 from models import (
     FoodDetectResponse,
@@ -270,10 +271,15 @@ class MealAnalysisOrchestrator:
         Stores corrections for training data (Decision 6).
         Returns confirmed meal data ready for PID analysis.
         """
+        confirmed_items = self._normalize_confirmed_items(
+            original_detection=original_detection,
+            incoming_items=request.items,
+        )
+
         # Check if user made corrections
         items_changed = self._detect_changes(
             original_detection.get("items", []),
-            [item.model_dump() for item in request.items]
+            [item.model_dump() for item in confirmed_items]
         )
         
         if items_changed and db_session:
@@ -281,17 +287,17 @@ class MealAnalysisOrchestrator:
                 user_id=user_id,
                 meal_id=request.meal_id,
                 original_response=original_detection,
-                user_correction=[item.model_dump() for item in request.items],
+                user_correction=[item.model_dump() for item in confirmed_items],
                 db_session=db_session,
             )
         
         # Calculate final totals from confirmed items
-        totals = self._calculate_totals(request.items)
+        totals = self._calculate_totals(confirmed_items)
         
         return {
             "success": True,
             "meal_id": request.meal_id,
-            "confirmed_items": [item.model_dump() for item in request.items],
+            "confirmed_items": [item.model_dump() for item in confirmed_items],
             "meal_totals": totals,
             "was_corrected": items_changed,
             "next_step": "pid_analysis",
@@ -365,6 +371,81 @@ class MealAnalysisOrchestrator:
             totals["fiber_g"] += item.nutrition.fiber_g or 0
         
         return totals
+
+    def _normalize_confirmed_items(
+        self,
+        original_detection: dict,
+        incoming_items: list[dict],
+    ) -> list[FoodItem]:
+        """Merge user-confirmed items with original detection and validate."""
+        originals = {
+            item.get("item_id"): item
+            for item in original_detection.get("items", [])
+            if isinstance(item, dict) and item.get("item_id")
+        }
+
+        normalized: list[FoodItem] = []
+        errors: list[dict] = []
+
+        for raw in incoming_items:
+            item_id = raw.get("item_id") if isinstance(raw, dict) else None
+            base = originals.get(item_id, {})
+
+            merged = {**base, **(raw or {})}
+
+            portion = merged.get("portion") or {}
+            merged["portion"] = {
+                "grams": portion.get("grams", base.get("portion", {}).get("grams", 1)),
+                "household_measure": portion.get(
+                    "household_measure",
+                    base.get("portion", {}).get("household_measure", "1 serving"),
+                ),
+                "confidence": portion.get(
+                    "confidence",
+                    base.get("portion", {}).get("confidence", 0.5),
+                ),
+            }
+
+            identification = merged.get("identification") or {}
+            merged["identification"] = {
+                "confidence": identification.get(
+                    "confidence",
+                    base.get("identification", {}).get("confidence", 0.5),
+                ),
+                "alternatives": identification.get(
+                    "alternatives",
+                    base.get("identification", {}).get("alternatives", []),
+                ),
+            }
+
+            if not merged.get("item_id"):
+                merged["item_id"] = f"item_{len(normalized) + 1:03d}"
+
+            merged.setdefault("food_category", base.get("food_category", "other"))
+            merged.setdefault("nutrition", base.get("nutrition"))
+            merged.setdefault("preparation_method", base.get("preparation_method", "unknown"))
+            merged.setdefault("flags", base.get("flags", []))
+
+            if merged.get("nutrition") is None:
+                merged["nutrition"] = {
+                    "calories": 0,
+                    "protein_g": 0,
+                    "carbs_g": 0,
+                    "fat_g": 0,
+                    "fiber_g": 0,
+                    "sodium_mg": 0,
+                    "sugar_g": 0,
+                }
+
+            try:
+                normalized.append(FoodItem.model_validate(merged))
+            except ValidationError as e:
+                errors.append({"item_id": item_id or "unknown", "errors": e.errors()})
+
+        if errors:
+            raise ValueError(f"Invalid confirmed items: {errors}")
+
+        return normalized
 
 
 # Singleton instance

@@ -9,22 +9,22 @@ from typing import Literal
 # GEMINI API CONFIGURATION
 # =============================================================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL_VISION = "gemini-1.5-flash"
-GEMINI_MODEL_PID = "gemini-1.5-flash"
+GEMINI_MODEL_VISION = os.getenv("GEMINI_MODEL_VISION", "gemma-3-4b-it")
+GEMINI_MODEL_PID = os.getenv("GEMINI_MODEL_PID", "gemma-3-4b-it")
 
 # Generation parameters (deterministic for production)
 GEMINI_VISION_CONFIG = {
     "temperature": 0.1,
     "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 2048,
+    "top_k": 20,
+    "max_output_tokens": 1024,
 }
 
 GEMINI_PID_CONFIG = {
     "temperature": 0.2,
     "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 1536,
+    "top_k": 20,
+    "max_output_tokens": 896,
 }
 
 # =============================================================================
@@ -50,10 +50,10 @@ IMAGE_MAX_SIZE_BYTES = 4 * 1024 * 1024  # 4MB max
 # =============================================================================
 # RETRY CONFIGURATION (Decision 5: Hybrid)
 # =============================================================================
-MAX_NETWORK_RETRIES = int(os.getenv("MAX_NETWORK_RETRIES", "2"))
+MAX_NETWORK_RETRIES = int(os.getenv("MAX_NETWORK_RETRIES", "0"))
 RETRY_BACKOFF_BASE = 1.0  # seconds
 RETRY_BACKOFF_MAX = 8.0  # seconds
-ENABLE_REPAIR_PROMPT = True
+ENABLE_REPAIR_PROMPT = False  # Disable extra round-trips; rely on first response only
 
 # =============================================================================
 # PID CONFIGURATION (Decision 9: Moderate defaults)

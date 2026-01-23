@@ -4,38 +4,31 @@
 
 ## Overview
 
-FitLoop is a mobile app that uses computer vision and LLM-powered analysis to help users track their nutrition. Users photograph their meals, and Gemini AI handles:
+FitLoop is a modern web app that uses computer vision and LLM-powered analysis to help users track their nutrition. Users photograph their meals, and Gemini AI handles:
 
-- **Food Detection**: Identifies foods in images
+- **Food Detection**: Identifies foods in images with confidence scores
 - **Portion Estimation**: Estimates serving sizes in grams
 - **Macro Calculation**: Computes calories, protein, carbs, fat, fiber
 - **PID Recommendations**: Provides personalized nutritional guidance using Proportional-Integral-Derivative analysis
 
-## Architecture Decisions
+## Tech Stack
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Image Upload | Direct base64 | MVP simplicity, S3-ready abstraction |
-| Portion Calibration | Heuristics + confidence | Zero friction, confirmation catches uncertainty |
-| Confidence Thresholds | Balanced (0.80/0.75) | Good UX/accuracy balance |
-| Gemini Calls | Two-call flow | Vision → Confirm → PID for accuracy |
-| Retry Strategy | Hybrid | Retry network, repair JSON, manual fallback |
-| Corrections | Store for training | Capture data, no automation yet |
-| Image Processing | Smart compression | 20-30% cost savings |
-| Confirmation UI | Hybrid quick-tap | Fast confirm, full edit when needed |
-| PID Tuning | Moderate + Gemini severity | Gemini outputs 0-1 severity directly |
-| Privacy Consent | Layered disclosure | GDPR-friendly, minimal friction |
+| Layer | Technology |
+|-------|------------|
+| **Backend** | Python 3.11, FastAPI, Pydantic |
+| **Frontend** | React 18, Vite, Tailwind CSS |
+| **AI/ML** | Google Gemini Vision API |
+| **Icons** | Lucide React |
 
 ## Project Structure
 
 ```
 FitLoop/
 ├── README.md                    # This file
-├── FUTURE_PLANS.md              # Roadmap and deferred enhancements
 ├── requirements.txt             # Python dependencies
 │
 ├── docs/                        # Documentation
-│   └── ARCHITECTURE.md          # Detailed MVP architecture document
+│   └── ARCHITECTURE.md          # Detailed MVP architecture
 │
 ├── prompts/                     # Gemini prompt templates
 │   ├── vision_prompt.json       # Food detection prompt
@@ -56,12 +49,30 @@ FitLoop/
 ├── api/                         # API documentation
 │   └── openapi.yaml            # OpenAPI 3.1 specification
 │
-├── frontend/                    # Frontend documentation
-│   └── confirmation_flow.md    # UI flow and components
+├── frontend/                    # React frontend
+│   ├── index.html              # HTML entry point
+│   ├── package.json            # Node dependencies
+│   ├── vite.config.js          # Vite configuration
+│   ├── tailwind.config.js      # Tailwind CSS config
+│   ├── postcss.config.js       # PostCSS config
+│   ├── public/                 # Static assets
+│   └── src/
+│       ├── main.jsx            # React entry point
+│       ├── App.jsx             # Main application component
+│       ├── index.css           # Global styles
+│       ├── components/         # React components
+│       │   ├── Header.jsx
+│       │   ├── DailyProgress.jsx
+│       │   ├── ImageUpload.jsx
+│       │   ├── MealAnalysis.jsx
+│       │   ├── MealConfirmation.jsx
+│       │   └── PidRecommendations.jsx
+│       └── services/
+│           └── api.js          # API service layer
 │
 └── testing/                     # Test plan and data
-    ├── test_plan.md            # Comprehensive test plan
-    └── sample_datasets.json    # Sample test data
+    ├── test_plan.md
+    └── sample_datasets.json
 ```
 
 ## Quick Start
@@ -69,124 +80,200 @@ FitLoop/
 ### Prerequisites
 
 - Python 3.11+
+- Node.js 18+ and npm
 - Google Cloud project with Gemini API enabled
 - Gemini API key
 
-### Installation
+### 1. Clone & Setup Python Environment
 
 ```bash
-# Clone the repository
 cd FitLoop
 
-# Create virtual environment
-python -m venv venv
+# Option A: Using pyenv (recommended)
+pyenv install 3.11.7
+pyenv local 3.11.7
+pyenv virtualenv 3.11.7 fitloop
+pyenv local fitloop
+
+# Option B: Using venv
+python3.11 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# Set environment variables
+# Set environment variable
 export GEMINI_API_KEY="your-api-key-here"
 ```
 
-### Run the Server
+### 2. Start the Backend
 
 ```bash
 cd backend
 uvicorn main:app --reload --port 8000
 ```
 
-### API Documentation
+The API will be available at `http://localhost:8000`
 
-Once running, visit:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+### 3. Start the Frontend
 
-### Architecture Documentation
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-For detailed architecture decisions, UX design, and technical specifications, see:
-- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** - Complete MVP architecture document
+The frontend will be available at `http://localhost:3000`
+
+### 4. Open the App
+
+Visit **http://localhost:3000** in your browser to start logging meals!
+
+## API Documentation
+
+Once the backend is running:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+## Frontend Features
+
+The React frontend provides a beautiful, mobile-friendly interface with:
+
+### 📷 Image Upload
+- Drag & drop or click to upload meal photos
+- Supports JPG, PNG, HEIC formats
+- Visual meal type selector (Breakfast, Lunch, Dinner, Snack)
+
+### 🔍 AI-Powered Analysis
+- Real-time food detection with progress indicators
+- Confidence scores for each detected item
+- Alternative suggestions for uncertain detections
+
+### ✅ Meal Confirmation
+- Edit detected food items and portions
+- Adjust quantities with +/- controls
+- View nutrition breakdown per item
+- See meal totals before confirming
+
+### 📊 Daily Progress Dashboard
+- Visual progress bars for Calories, Protein, Carbs, Fat
+- Real-time updates after logging meals
+- Color-coded progress indicators
+
+### 💡 Smart Recommendations
+- PID-based nutritional analysis
+- Priority-ranked suggestions
+- Food recommendations to hit daily targets
+- Next meal ideas with nutrition estimates
 
 ## API Flow
 
-### Standard Meal Logging (3 steps)
-
 ```
-1. POST /api/v1/meals/analyze
-   Body: { image_base64, meal_type, dietary_preferences, allergies }
-   Returns: { meal_id, detection, next_step }
-
-2. POST /api/v1/meals/{meal_id}/confirm
-   Body: { items (confirmed/corrected) }
-   Returns: { confirmed_items, meal_totals, next_step }
-
-3. POST /api/v1/meals/{meal_id}/pid
-   Body: { user_profile, daily_targets, todays_intake, weekly_summary, ... }
-   Returns: { recommendations, daily_summary, next_meal_suggestions }
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Upload Image  │────▶│  Analyze Meal   │────▶│ Review & Edit   │
+│   Select Type   │     │  (Gemini AI)    │     │  Detected Items │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                         │
+                                                         ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ View Next Meal  │◀────│  PID Analysis   │◀────│  Confirm Meal   │
+│   Suggestions   │     │ Recommendations │     │   Log to DB     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
-### Quick Log (auto-accepted meals)
+### API Endpoints
 
-```
-POST /api/v1/meals/quick-log
-Body: { request, pid_request }
-Returns: Full results if all items auto-accepted, or requires_confirmation: true
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/api/v1/meals/analyze` | POST | Analyze food image |
+| `/api/v1/meals/{meal_id}/confirm` | POST | Confirm/correct meal |
+| `/api/v1/meals/{meal_id}/pid` | POST | Get PID recommendations |
 
 ## Configuration
 
-Key environment variables in `backend/config.py`:
+### Backend Environment Variables
 
 ```bash
-# Gemini API
-GEMINI_API_KEY=your-key
+# Required
+GEMINI_API_KEY=your-gemini-api-key
 
-# Confidence Thresholds (adjust via env vars)
+# Optional - Confidence Thresholds
 FOOD_ID_AUTO_ACCEPT=0.80      # Auto-accept above this
 FOOD_ID_CONFIRM_MIN=0.55      # Confirm between 0.55-0.79
 PORTION_AUTO_ACCEPT=0.75      # Auto-accept above this
-PORTION_CONFIRM_MIN=0.45      # Confirm between 0.45-0.74
 
-# Image Processing
+# Optional - Image Processing
 IMAGE_MAX_DIMENSION=1024      # Max image dimension (pixels)
 IMAGE_JPEG_QUALITY=85         # JPEG compression quality
+```
+
+### Frontend Configuration
+
+The frontend uses Vite's proxy feature to forward `/api` requests to the backend. This is configured in `vite.config.js`:
+
+```javascript
+server: {
+  port: 3000,
+  proxy: {
+    '/api': {
+      target: 'http://localhost:8000',
+      changeOrigin: true,
+    },
+  },
+}
+```
+
+## Development
+
+### Running in Development Mode
+
+**Backend** (with hot reload):
+```bash
+cd backend
+uvicorn main:app --reload --port 8000
+```
+
+**Frontend** (with hot module replacement):
+```bash
+cd frontend
+npm run dev
+```
+
+### Building for Production
+
+```bash
+cd frontend
+npm run build
+npm run preview  # Preview production build locally
 ```
 
 ## Testing
 
 ```bash
-# Run all tests
+# Run backend tests
 pytest testing/ -v
 
 # Run with coverage
 pytest testing/ --cov=backend --cov-report=html
 ```
 
-See `testing/test_plan.md` for detailed test categories and requirements.
+## Architecture Decisions
 
-## Prompt Templates
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Image Upload | Direct base64 | MVP simplicity, S3-ready abstraction |
+| Frontend Framework | React + Vite | Fast development, modern DX |
+| Styling | Tailwind CSS | Utility-first, rapid UI development |
+| State Management | React useState | Simple state, no external deps |
+| API Communication | Axios | Promise-based, interceptors support |
+| Confidence Thresholds | Balanced (0.80/0.75) | Good UX/accuracy balance |
+| Gemini Calls | Two-call flow | Vision → Confirm → PID for accuracy |
 
-### Vision Prompt (`prompts/vision_prompt.json`)
-- Identifies foods in images
-- Estimates portions using plate-size heuristics
-- Calculates macros from USDA database
-- Returns confidence scores for routing
+## Architecture Documentation
 
-### PID Prompt (`prompts/pid_prompt.json`)
-- Analyzes daily/weekly intake vs targets
-- Calculates severity scores (0-1) using PID principles
-- Generates actionable recommendations
-- Respects dietary preferences and health conditions
-
-## Future Enhancements
-
-See `FUTURE_PLANS.md` for detailed roadmap including:
-- S3 image storage migration
-- Correction-based learning and caching
-- Reference object calibration
-- Goal/condition-based PID intensity
-- Adaptive confidence thresholds
-- HITL review queue
+For detailed architecture decisions, UX design, and technical specifications, see:
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Complete MVP architecture document
 
 ## License
 

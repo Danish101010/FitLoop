@@ -32,68 +32,44 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # PROMPT TEMPLATES
 # =============================================================================
-VISION_SYSTEM_PROMPT = """You are a professional nutritionist AI assistant specializing in food identification and portion estimation from photographs. Your role is to:
+VISION_SYSTEM_PROMPT = """You are a concise nutrition vision assistant.
+Tasks:
+- Identify distinct foods in the image
+- Estimate portions in grams using simple visual cues (plate ~25cm, bowl 300-500ml, palm ~85g meat, fist ~150g cooked grain)
+- Estimate macros and calories per item
+- Provide confidence (0-1) for identification and portion
+- Offer 2-3 alternatives when confidence < 0.8
 
-1. IDENTIFY all distinct food items visible in the image
-2. ESTIMATE portion sizes in grams using visual cues (plate size ~25cm standard, utensils, hands as reference)
-3. CALCULATE macronutrients and calories for each item based on USDA/standard nutritional databases
-4. PROVIDE confidence scores (0.0-1.0) for both identification and portion estimation
-5. SUGGEST alternative interpretations when confidence is below 0.8
+Rules (non-negotiable):
+- Respond with exactly one JSON object, no prose, no markdown, no code fences.
+- The JSON must conform to the provided FoodDetectResponse schema keys.
+- Prefer conservative estimates when unsure.
+- Flag obscured/ambiguous items.
+- Count meaningful sauces/toppings separately.
+- Round grams and calories to nearest 5.
+- If no food is detected, return an empty `items` array and set an appropriate status/message.
+"""
 
-RULES:
-- Always return valid JSON matching the specified schema
-- Use conservative portion estimates when uncertain (prefer underestimate)
-- Flag items that are partially obscured or ambiguous
-- Consider cooking methods visible in the image (fried, grilled, raw, etc.)
-- Account for sauces, dressings, and toppings as separate items when significant
-- Round grams to nearest 5g, calories to nearest 5 kcal
-- If no food is detected, return empty items array with appropriate message
+PID_SYSTEM_PROMPT = """You are a concise nutrition coach using PID principles.
+- Proportional: respond to today's gaps/surpluses
+- Integral: consider the past 7 days
+- Derivative: note trends/rate of change
 
-PORTION ESTIMATION HEURISTICS:
-- Standard dinner plate: 25-27cm diameter
-- Salad/side plate: 18-20cm diameter
-- Bowl: 300-500ml typical
-- Palm of hand: ~85g cooked meat
-- Fist: ~1 cup or 150g cooked rice/pasta
-- Thumb tip: ~1 tbsp or 15g
-- Smartphone for scale: ~15cm length"""
+Tasks:
+1) Analyze status vs targets
+2) Score severity 0.0-1.0 per concern
+3) Give actionable, supportive recommendations
+4) Prioritize by impact (max 5)
+5) Suggest concrete foods that fit preferences
 
-PID_SYSTEM_PROMPT = """You are a professional nutritionist AI providing personalized dietary guidance using PID (Proportional-Integral-Derivative) analysis principles:
-
-**P (Proportional):** React to TODAY's nutritional gaps or surpluses
-**I (Integral):** Consider ACCUMULATED patterns over the past 7 days
-**D (Derivative):** Note TRENDS and rate of change in intake
-
-Your role is to:
-1. ANALYZE the user's current nutritional status against their targets
-2. CALCULATE severity scores (0.0-1.0) for each nutritional concern
-3. GENERATE actionable, supportive recommendations
-4. PRIORITIZE suggestions by impact and urgency
-5. SUGGEST specific foods that would help address deficiencies
-
-RULES:
-- Always return valid JSON matching the KpiPidResponse schema
-- Be supportive and non-judgmental in language
-- Severity 0.0-0.3: gentle suggestion, 0.3-0.6: clear recommendation, 0.6-1.0: important action
-- Consider the user's dietary preferences and restrictions
-- Account for health conditions when flagged (increase severity for relevant nutrients)
-- Maximum 5 recommendations per response, prioritized by severity
-- Provide specific, actionable food suggestions (not generic advice)
-- Consider meal timing (if this is breakfast, don't suggest dinner-heavy foods)
-
-SEVERITY CALCULATION:
-- < 10% deviation from target: severity 0.1-0.2
-- 10-20% deviation: severity 0.2-0.4
-- 20-35% deviation: severity 0.4-0.6
-- 35-50% deviation: severity 0.6-0.8
-- > 50% deviation: severity 0.8-1.0
-- Health conditions related to nutrient: multiply severity by 1.3
-- Strict goals flagged: multiply severity by 1.2
-
-TONE:
-- Moderate intensity (default): supportive coach
-- Be encouraging, focus on "adding good" rather than "avoiding bad"
-- Use phrases like "Consider adding..." "Great opportunity to..." "You might enjoy...\""""
+Rules (non-negotiable):
+- Respond with exactly one JSON object, no prose, no markdown, no code fences.
+- The JSON must conform to KpiPidResponse keys provided in the schema hint.
+- Severity bands: 0.0-0.3 gentle, 0.3-0.6 clear, 0.6-1.0 important.
+- Respect preferences/allergies/health conditions.
+- Tailor to meal timing.
+- Keep tone encouraging; focus on adding helpful foods.
+"""
 
 REPAIR_PROMPT_TEMPLATE = """Your previous response was not valid JSON or did not match the expected schema.
 
@@ -134,13 +110,11 @@ class GeminiClient:
         self.vision_model = genai.GenerativeModel(
             model_name=GEMINI_MODEL_VISION,
             generation_config=genai.GenerationConfig(**GEMINI_VISION_CONFIG),
-            system_instruction=VISION_SYSTEM_PROMPT,
         )
         
         self.pid_model = genai.GenerativeModel(
             model_name=GEMINI_MODEL_PID,
             generation_config=genai.GenerationConfig(**GEMINI_PID_CONFIG),
-            system_instruction=PID_SYSTEM_PROMPT,
         )
     
     async def _retry_with_backoff(
@@ -160,10 +134,18 @@ class GeminiClient:
         for attempt in range(max_retries + 1):
             try:
                 return await coro_func(*args, **kwargs)
+            except google_exceptions.ResourceExhausted as e:
+                # Quota exceeded: do not retry, surface immediately
+                logger.error(f"Gemini quota exceeded: {e}")
+                raise GeminiAPIError(
+                    f"Quota exceeded: {str(e)}",
+                    retryable=False,
+                    original_error=e,
+                )
             except (
                 google_exceptions.ServiceUnavailable,
                 google_exceptions.DeadlineExceeded,
-                google_exceptions.ResourceExhausted,
+                google_exceptions.InternalServerError,
                 ConnectionError,
                 TimeoutError,
             ) as e:
@@ -208,15 +190,57 @@ class GeminiClient:
             text = text[:-3]
         
         text = text.strip()
-        
+
+        # First attempt: direct parse
         try:
             return json.loads(text)
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
+            # Fallback: extract first JSON object
+            extracted = self._extract_first_json_object(text)
+            if extracted:
+                try:
+                    return json.loads(extracted)
+                except json.JSONDecodeError as e:
+                    raise GeminiAPIError(
+                        f"Invalid JSON response after extraction: {str(e)}",
+                        retryable=True,
+                        original_error=e
+                    )
+
             raise GeminiAPIError(
-                f"Invalid JSON response: {str(e)}",
+                "Invalid JSON response: unable to extract JSON object",
                 retryable=True,  # Can try repair prompt
-                original_error=e
+                original_error=ValueError("no_json_object_found"),
             )
+
+    @staticmethod
+    def _extract_first_json_object(text: str) -> str | None:
+        """Extract the first JSON object from a string using brace matching."""
+        start = text.find("{")
+        if start == -1:
+            return None
+        depth = 0
+        in_string = False
+        escape = False
+        for i in range(start, len(text)):
+            ch = text[i]
+            if escape:
+                escape = False
+                continue
+            if ch == "\\":
+                escape = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+            if in_string:
+                continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+        return None
     
     async def _call_with_repair(
         self,
@@ -225,9 +249,7 @@ class GeminiClient:
         expected_schema: str,
     ) -> dict:
         """
-        Call Gemini and attempt repair prompt if JSON parsing fails.
-        
-        Layer 2 of Decision 5: Repair prompt for parse errors
+        Call Gemini and parse JSON. No repair retries to keep call count minimal.
         """
         # First attempt
         async def make_call():
@@ -238,30 +260,8 @@ class GeminiClient:
             response_text = await self._retry_with_backoff(make_call)
             return self._parse_json_response(response_text)
         except GeminiAPIError as e:
-            if not e.retryable or not ENABLE_REPAIR_PROMPT:
-                raise
-            
-            # Attempt repair prompt
-            logger.info("Attempting repair prompt for malformed JSON...")
-            
-            repair_prompt = REPAIR_PROMPT_TEMPLATE.format(
-                original_response=response_text[:500] if 'response_text' in dir() else "N/A",
-                error_message=str(e.original_error),
-            ) + f"\n\nExpected schema:\n{expected_schema}"
-            
-            try:
-                repair_response = await self._retry_with_backoff(
-                    lambda: model.generate_content_async(repair_prompt)
-                )
-                return self._parse_json_response(repair_response.text)
-            except GeminiAPIError:
-                # Repair failed, re-raise original error
-                logger.error("Repair prompt failed, manual entry required")
-                raise GeminiAPIError(
-                    "JSON parsing failed even after repair attempt",
-                    retryable=False,
-                    original_error=e.original_error
-                )
+            # Surface parsing failures immediately without extra calls
+            raise
     
     async def analyze_food_image(
         self,
@@ -283,7 +283,9 @@ class GeminiClient:
             FoodDetectResponse as dict
         """
         # Build user prompt
-        user_prompt = f"""Analyze this food image and identify all food items with their estimated portions and nutritional content.
+        user_prompt = f"""{VISION_SYSTEM_PROMPT}
+
+    Analyze this food image and identify all food items with their estimated portions and nutritional content.
 
 **User Context:**
 - Meal type: {meal_type}
@@ -364,7 +366,9 @@ Return ONLY valid JSON matching the FoodDetectResponse schema."""
         Returns:
             KpiPidResponse as dict
         """
-        user_prompt = f"""Analyze the user's nutritional intake and provide personalized PID-based recommendations.
+        user_prompt = f"""{PID_SYSTEM_PROMPT}
+
+    Analyze the user's nutritional intake and provide personalized PID-based recommendations.
 
 **User Profile:**
 - Age: {user_profile.get('age')}

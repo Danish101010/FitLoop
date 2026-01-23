@@ -230,7 +230,7 @@ class AnalyzeMealRequest(BaseModel):
 class ConfirmMealRequest(BaseModel):
     """Request to confirm or correct a meal analysis."""
     meal_id: str
-    items: list[FoodItem] = Field(description="Confirmed/corrected food items")
+    items: list[dict] = Field(description="Confirmed/corrected food items (flexible shape)")
     user_confirmed: bool = True
 
 

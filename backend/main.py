@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Depends, Header, BackgroundTasks
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -195,12 +196,15 @@ async def confirm_meal(
     
     logger.info(f"Confirming meal {meal_id} for user {user['user_id']}")
     
-    result = await orchestrator.confirm_meal(
-        request=request,
-        original_detection=pending["detection"],
-        user_id=user["user_id"],
-        db_session=None,  # TODO: Pass real DB session
-    )
+    try:
+        result = await orchestrator.confirm_meal(
+            request=request,
+            original_detection=pending["detection"],
+            user_id=user["user_id"],
+            db_session=None,  # TODO: Pass real DB session
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     if result["success"]:
         # Update stored meal with confirmed data
@@ -348,7 +352,10 @@ async def manual_meal_entry(
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return {"error": "internal_error", "message": "An unexpected error occurred"}
+    return JSONResponse(
+        status_code=500,
+        content={"error": "internal_error", "message": "An unexpected error occurred"},
+    )
 
 
 # =============================================================================
