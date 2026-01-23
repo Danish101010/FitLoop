@@ -395,27 +395,40 @@ class MealAnalysisOrchestrator:
 
             portion = merged.get("portion") or {}
             merged["portion"] = {
-                "grams": portion.get("grams", base.get("portion", {}).get("grams", 1)),
+                "grams": portion.get("grams", base.get("portion", {}).get("grams", 100)) or 100,
                 "household_measure": portion.get(
                     "household_measure",
                     base.get("portion", {}).get("household_measure", "1 serving"),
-                ),
+                ) or "1 serving",
                 "confidence": portion.get(
                     "confidence",
                     base.get("portion", {}).get("confidence", 0.5),
-                ),
+                ) or 0.5,
             }
 
             identification = merged.get("identification") or {}
+            raw_alternatives = identification.get(
+                "alternatives",
+                base.get("identification", {}).get("alternatives", []),
+            ) or []
+            
+            # Normalize alternatives - can be strings or dicts
+            normalized_alternatives = []
+            for alt in raw_alternatives:
+                if isinstance(alt, str):
+                    normalized_alternatives.append({"name": alt, "confidence": 0.5})
+                elif isinstance(alt, dict):
+                    normalized_alternatives.append({
+                        "name": alt.get("name", str(alt)),
+                        "confidence": alt.get("confidence", 0.5)
+                    })
+            
             merged["identification"] = {
                 "confidence": identification.get(
                     "confidence",
                     base.get("identification", {}).get("confidence", 0.5),
-                ),
-                "alternatives": identification.get(
-                    "alternatives",
-                    base.get("identification", {}).get("alternatives", []),
-                ),
+                ) or 0.5,
+                "alternatives": normalized_alternatives,
             }
 
             if not merged.get("item_id"):
@@ -440,9 +453,21 @@ class MealAnalysisOrchestrator:
             try:
                 normalized.append(FoodItem.model_validate(merged))
             except ValidationError as e:
-                errors.append({"item_id": item_id or "unknown", "errors": e.errors()})
+                logger.warning(f"Validation error for item {item_id}: {e.errors()}. Merged data: {merged}")
+                # Try to fix common issues and retry
+                # Fix item_id format if needed
+                if not merged["item_id"].startswith("item_") or not merged["item_id"][5:].isdigit():
+                    merged["item_id"] = f"item_{len(normalized) + 1:03d}"
+                # Ensure food_name exists
+                if not merged.get("food_name"):
+                    merged["food_name"] = "Unknown Food"
+                try:
+                    normalized.append(FoodItem.model_validate(merged))
+                except ValidationError as e2:
+                    errors.append({"item_id": item_id or "unknown", "errors": e2.errors()})
 
         if errors:
+            logger.error(f"Invalid confirmed items after fix attempts: {errors}")
             raise ValueError(f"Invalid confirmed items: {errors}")
 
         return normalized

@@ -32,22 +32,20 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # PROMPT TEMPLATES
 # =============================================================================
-VISION_SYSTEM_PROMPT = """You are a concise nutrition vision assistant.
-Tasks:
-- Identify distinct foods in the image
-- Estimate portions in grams using simple visual cues (plate ~25cm, bowl 300-500ml, palm ~85g meat, fist ~150g cooked grain)
-- Estimate macros and calories per item
-- Provide confidence (0-1) for identification and portion
-- Offer 2-3 alternatives when confidence < 0.8
+VISION_SYSTEM_PROMPT = """You are a professional nutrition AI that analyzes food images.
 
-Rules (non-negotiable):
-- Respond with exactly one JSON object, no prose, no markdown, no code fences.
-- The JSON must conform to the provided FoodDetectResponse schema keys.
-- Prefer conservative estimates when unsure.
-- Flag obscured/ambiguous items.
-- Count meaningful sauces/toppings separately.
-- Round grams and calories to nearest 5.
-- If no food is detected, return an empty `items` array and set an appropriate status/message.
+TASKS:
+1. Identify ALL distinct food items in the image
+2. Estimate portion sizes in grams (plate ~25cm, bowl 300-500ml, palm ~85g meat, fist ~150g grain)
+3. Calculate COMPLETE nutrition for each item: calories, protein_g, carbs_g, fat_g, fiber_g
+4. Provide confidence scores (0.0-1.0) for identification and portion
+
+RULES (STRICT):
+- Return ONLY a valid JSON object, no markdown, no code fences, no explanations
+- MUST include ALL nutrition fields for each item: calories, protein_g, carbs_g, fat_g, fiber_g
+- Use USDA database values for nutrition calculations
+- Round grams to nearest 5, calories to nearest 5
+- If unsure, provide conservative estimates
 """
 
 PID_SYSTEM_PROMPT = """You are a concise nutrition coach using PID principles.
@@ -178,11 +176,16 @@ class GeminiClient:
         """
         Parse JSON from Gemini response, handling common issues.
         """
+        # Log raw response for debugging
+        logger.info(f"Raw Gemini response (first 500 chars): {response_text[:500]}")
+        
         # Clean up response text
         text = response_text.strip()
         
-        # Remove markdown code fences if present
+        # Remove markdown code fences if present (various formats)
         if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```JSON"):
             text = text[7:]
         elif text.startswith("```"):
             text = text[3:]
@@ -201,15 +204,17 @@ class GeminiClient:
                 try:
                     return json.loads(extracted)
                 except json.JSONDecodeError as e:
+                    logger.error(f"JSON parse error after extraction: {e}. Text: {extracted[:200]}")
                     raise GeminiAPIError(
                         f"Invalid JSON response after extraction: {str(e)}",
                         retryable=True,
                         original_error=e
                     )
 
+            logger.error(f"No JSON object found in response: {text[:300]}")
             raise GeminiAPIError(
                 "Invalid JSON response: unable to extract JSON object",
-                retryable=True,  # Can try repair prompt
+                retryable=True,
                 original_error=ValueError("no_json_object_found"),
             )
 
@@ -282,24 +287,31 @@ class GeminiClient:
         Returns:
             FoodDetectResponse as dict
         """
-        # Build user prompt
+        # Build user prompt - simpler, clearer format
         user_prompt = f"""{VISION_SYSTEM_PROMPT}
 
-    Analyze this food image and identify all food items with their estimated portions and nutritional content.
+Analyze this {meal_type} meal image.
+User dietary preferences: {dietary_preferences}
+User allergies: {allergies}
 
-**User Context:**
-- Meal type: {meal_type}
-- User's dietary preferences: {dietary_preferences}
-- Any known allergies: {allergies}
+For each food item found, provide:
+- item_id (format: item_001, item_002, etc.)
+- food_name (specific name like "Grilled Chicken Breast")
+- food_category (one of: protein, carbohydrate, vegetable, fruit, dairy, fat, beverage, condiment, mixed_dish, snack, dessert, other)
+- portion.grams (estimated weight)
+- portion.household_measure (like "1 cup" or "1 medium piece")
+- portion.confidence (0.0 to 1.0)
+- identification.confidence (0.0 to 1.0)
+- identification.alternatives (array, empty if confident)
+- nutrition.calories (number)
+- nutrition.protein_g (number)
+- nutrition.carbs_g (number)
+- nutrition.fat_g (number)
+- nutrition.fiber_g (number)
 
-**Instructions:**
-1. List each distinct food item you can identify
-2. Estimate the portion size in grams
-3. Calculate macros (protein, carbs, fat, fiber) and calories
-4. Provide confidence scores for identification and portion
-5. If confidence < 0.8, provide 2-3 alternative suggestions
+Also include meal_totals with sum of all items.
 
-Return ONLY valid JSON matching the FoodDetectResponse schema."""
+Return ONLY the JSON object, starting with {{ and ending with }}. No explanations, no markdown."""
 
         # Build content with image
         if image_data["type"] == "base64":
@@ -333,11 +345,43 @@ Return ONLY valid JSON matching the FoodDetectResponse schema."""
             expected_schema,
         )
         
+        # Handle case where Gemini returns a list directly instead of an object
+        if isinstance(result, list):
+            logger.info("Gemini returned a list, wrapping in object")
+            result = {"items": result}
+        
+        # Normalize response - Gemini sometimes uses different key names
+        # Handle "food_items" vs "items"
+        if "food_items" in result and "items" not in result:
+            result["items"] = result.pop("food_items")
+        
+        # Ensure items is a list
+        if "items" not in result:
+            result["items"] = []
+        
+        # Calculate meal_totals if not present
+        if "meal_totals" not in result or not result["meal_totals"]:
+            totals = {"calories": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0, "fiber_g": 0}
+            for item in result.get("items", []):
+                nutrition = item.get("nutrition", {})
+                totals["calories"] += nutrition.get("calories", 0) or 0
+                totals["protein_g"] += nutrition.get("protein_g", 0) or 0
+                totals["carbs_g"] += nutrition.get("carbs_g", 0) or 0
+                totals["fat_g"] += nutrition.get("fat_g", 0) or 0
+                totals["fiber_g"] += nutrition.get("fiber_g", 0) or 0
+            result["meal_totals"] = totals
+        
+        # Set status if not present
+        if "status" not in result:
+            result["status"] = "success" if result["items"] else "no_food_detected"
+        
         # Add request metadata if not present
         if "request_id" not in result:
             result["request_id"] = f"req_{image_data['hash'][:8]}"
         if "timestamp" not in result:
             result["timestamp"] = datetime.utcnow().isoformat() + "Z"
+        
+        logger.info(f"Normalized result: {len(result.get('items', []))} items detected")
         
         return result
     

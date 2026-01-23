@@ -2,31 +2,44 @@ import { useState, useEffect } from 'react'
 import { Check, X, Edit2, Plus, Minus, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
 
 function MealConfirmation({ detection, imageUrl, onConfirm, onCancel }) {
-  // Normalize items from detection - handle different response structures
+  // Debug: Log raw detection data
+  console.log('MealConfirmation - Raw detection:', JSON.stringify(detection, null, 2))
+
+  // Normalize items from detection - handle different response structures from Gemini
   const normalizeItems = (det) => {
-    if (!det) return []
+    if (!det) {
+      console.log('MealConfirmation - No detection data')
+      return []
+    }
+    
     const rawItems = det.items || []
-    return rawItems.map((item, idx) => ({
-      item_id: item.item_id || `item_${String(idx).padStart(3, '0')}`,
-      food_name: item.food_name || item.name || 'Unknown Item',
-      food_category: item.food_category || item.category || 'other',
-      portion: {
-        grams: item.portion?.grams || item.grams || 100,
-        household_measure: item.portion?.household_measure || item.household_measure || '',
-        confidence: item.portion?.confidence || 0.5,
-      },
-      identification: {
-        confidence: item.identification?.confidence || item.confidence || 0.5,
-        alternatives: item.identification?.alternatives || item.alternatives || [],
-      },
-      nutrition: {
-        calories: item.nutrition?.calories || item.calories || 0,
-        protein_g: item.nutrition?.protein_g || item.protein_g || item.protein || 0,
-        carbs_g: item.nutrition?.carbs_g || item.carbs_g || item.carbs || 0,
-        fat_g: item.nutrition?.fat_g || item.fat_g || item.fat || 0,
-        fiber_g: item.nutrition?.fiber_g || item.fiber_g || item.fiber || 0,
-      },
-    }))
+    console.log('MealConfirmation - Raw items:', rawItems)
+    
+    return rawItems.map((item, idx) => {
+      const normalized = {
+        item_id: item.item_id || `item_${String(idx).padStart(3, '0')}`,
+        food_name: item.food_name || item.name || 'Unknown Item',
+        food_category: item.food_category || item.category || 'other',
+        portion: {
+          grams: Number(item.portion?.grams) || Number(item.grams) || 100,
+          household_measure: item.portion?.household_measure || item.household_measure || '',
+          confidence: Number(item.portion?.confidence) || 0.5,
+        },
+        identification: {
+          confidence: Number(item.identification?.confidence) || Number(item.confidence) || 0.5,
+          alternatives: item.identification?.alternatives || item.alternatives || [],
+        },
+        nutrition: {
+          calories: Number(item.nutrition?.calories) || Number(item.calories) || 0,
+          protein_g: Number(item.nutrition?.protein_g) || Number(item.protein_g) || Number(item.protein) || 0,
+          carbs_g: Number(item.nutrition?.carbs_g) || Number(item.carbs_g) || Number(item.carbs) || 0,
+          fat_g: Number(item.nutrition?.fat_g) || Number(item.fat_g) || Number(item.fat) || 0,
+          fiber_g: Number(item.nutrition?.fiber_g) || Number(item.fiber_g) || Number(item.fiber) || 0,
+        },
+      }
+      console.log(`MealConfirmation - Normalized item ${idx}:`, normalized)
+      return normalized
+    })
   }
 
   const [items, setItems] = useState(() => normalizeItems(detection))

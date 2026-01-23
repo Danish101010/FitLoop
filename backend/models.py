@@ -90,24 +90,24 @@ class NutritionTotals(BaseModel):
 # =============================================================================
 class Alternative(BaseModel):
     name: str
-    confidence: float = Field(ge=0, le=1)
+    confidence: float = Field(ge=0, le=1, default=0.5)
 
 
 class Identification(BaseModel):
-    confidence: float = Field(ge=0, le=1, description="Confidence score for food identification")
-    alternatives: list[Alternative] = Field(default_factory=list, max_length=3)
+    confidence: float = Field(ge=0, le=1, default=0.5, description="Confidence score for food identification")
+    alternatives: list[Alternative] = Field(default_factory=list)
 
 
 class Portion(BaseModel):
-    grams: float = Field(ge=1, le=5000, description="Estimated weight in grams")
-    household_measure: str = Field(description="Human-readable portion description")
-    confidence: float = Field(ge=0, le=1, description="Confidence score for portion estimation")
+    grams: float = Field(ge=0, le=10000, description="Estimated weight in grams")
+    household_measure: str = Field(default="1 serving", description="Human-readable portion description")
+    confidence: float = Field(ge=0, le=1, default=0.5, description="Confidence score for portion estimation")
 
 
 class FoodItem(BaseModel):
-    item_id: str = Field(pattern=r"^item_[0-9]{3}$")
-    food_name: str = Field(min_length=1, max_length=100)
-    food_category: FoodCategory
+    item_id: str = Field(pattern=r"^item_[0-9]+$", description="Item identifier")
+    food_name: str = Field(min_length=1, max_length=200)
+    food_category: FoodCategory = FoodCategory.OTHER
     portion: Portion
     identification: Identification
     nutrition: Nutrition

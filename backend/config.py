@@ -9,22 +9,23 @@ from typing import Literal
 # GEMINI API CONFIGURATION
 # =============================================================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL_VISION = os.getenv("GEMINI_MODEL_VISION", "gemma-3-4b-it")
-GEMINI_MODEL_PID = os.getenv("GEMINI_MODEL_PID", "gemma-3-4b-it")
+# Use gemini-1.5-flash for better vision capabilities and JSON output
+GEMINI_MODEL_VISION = os.getenv("GEMINI_MODEL_VISION", "gemini-2.5-flash-lite")
+GEMINI_MODEL_PID = os.getenv("GEMINI_MODEL_PID", "gemini-2.5-flash-lite")
 
 # Generation parameters (deterministic for production)
 GEMINI_VISION_CONFIG = {
     "temperature": 0.1,
     "top_p": 0.95,
     "top_k": 20,
-    "max_output_tokens": 1024,
+    "max_output_tokens": 2048,
 }
 
 GEMINI_PID_CONFIG = {
     "temperature": 0.2,
     "top_p": 0.95,
     "top_k": 20,
-    "max_output_tokens": 896,
+    "max_output_tokens": 1024,
 }
 
 # =============================================================================

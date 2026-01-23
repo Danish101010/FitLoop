@@ -40,7 +40,9 @@ export async function analyzeMeal(imageBase64, mealType = 'lunch') {
 export async function confirmMeal(mealId, items) {
   try {
     const response = await api.post(`/meals/${mealId}/confirm`, {
+      meal_id: mealId,
       items: items,
+      user_confirmed: true,
     })
     return response.data
   } catch (error) {
