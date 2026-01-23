@@ -1,5 +1,5 @@
 # FitLoop Backend Dependencies
-# Version: 1.0.0 (MVP)
+# Version: 2.0.0 (With Auth & Supabase)
 
 # Web Framework
 fastapi==0.109.0
@@ -9,6 +9,7 @@ python-multipart==0.0.6
 # Data Validation
 pydantic==2.5.3
 pydantic-settings==2.1.0
+email-validator==2.1.0  # Required for EmailStr in Pydantic
 
 # Google Gemini AI
 google-generativeai==0.3.2
@@ -20,10 +21,14 @@ Pillow==10.2.0
 httpx==0.26.0
 aiohttp==3.9.1
 
-# Database (optional - for correction logging)
-# sqlalchemy==2.0.25
-# asyncpg==0.29.0  # PostgreSQL
-# motor==3.3.2     # MongoDB
+# Database
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9  # PostgreSQL adapter for Supabase
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
 
 # Testing
 pytest==7.4.4
