@@ -3,6 +3,10 @@ FitLoop Configuration
 Version: 1.0.0 (MVP)
 """
 import os
+
+# Fix gRPC DNS resolution issue on macOS - must be set before importing google libraries
+os.environ.setdefault("GRPC_DNS_RESOLVER", "native")
+
 from typing import Literal
 
 # =============================================================================

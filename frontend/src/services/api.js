@@ -29,16 +29,24 @@ api.interceptors.request.use(
  * Analyze a meal image
  * @param {string} imageBase64 - Base64 encoded image
  * @param {string} mealType - Type of meal (breakfast, lunch, dinner, snack)
+ * @param {string} mealDescription - Optional description to help AI identify foods
  * @returns {Promise} API response
  */
-export async function analyzeMeal(imageBase64, mealType = 'lunch') {
+export async function analyzeMeal(imageBase64, mealType = 'lunch', mealDescription = null) {
   try {
-    const response = await api.post(`${API_BASE}/meals/analyze`, {
+    const payload = {
       image_base64: imageBase64,
       meal_type: mealType,
       dietary_preferences: "no specific restrictions",
       allergies: "none",
-    })
+    }
+    
+    // Only include description if provided
+    if (mealDescription && mealDescription.trim()) {
+      payload.meal_description = mealDescription.trim()
+    }
+    
+    const response = await api.post(`${API_BASE}/meals/analyze`, payload)
     return response.data
   } catch (error) {
     console.error('Analyze meal error:', error)

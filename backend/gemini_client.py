@@ -274,6 +274,7 @@ class GeminiClient:
         meal_type: str,
         dietary_preferences: str = "no specific restrictions",
         allergies: str = "none",
+        meal_description: str = None,
     ) -> dict:
         """
         Analyze a food image and return detected items with nutrition.
@@ -283,16 +284,26 @@ class GeminiClient:
             meal_type: Type of meal (breakfast, lunch, dinner, snack)
             dietary_preferences: User's dietary preferences
             allergies: User's known allergies
+            meal_description: Optional user description to help identify foods
         
         Returns:
             FoodDetectResponse as dict
         """
+        # Build description hint if provided
+        description_hint = ""
+        if meal_description:
+            description_hint = (
+                f'\n\nIMPORTANT USER HINT: The user describes this meal as: "{meal_description}"\n'
+                f"Use this hint to better identify foods, especially for items where the contents "
+                f"may not be visible (like dumplings, wraps, sandwiches, etc.)."
+            )
+        
         # Build user prompt - simpler, clearer format
         user_prompt = f"""{VISION_SYSTEM_PROMPT}
 
 Analyze this {meal_type} meal image.
 User dietary preferences: {dietary_preferences}
-User allergies: {allergies}
+User allergies: {allergies}{description_hint}
 
 For each food item found, provide:
 - item_id (format: item_001, item_002, etc.)

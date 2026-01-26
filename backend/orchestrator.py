@@ -220,6 +220,7 @@ class MealAnalysisOrchestrator:
                 meal_type=request.meal_type.value,
                 dietary_preferences=request.dietary_preferences,
                 allergies=request.allergies,
+                meal_description=request.meal_description,
             )
             
             # Process response and add confirmation metadata

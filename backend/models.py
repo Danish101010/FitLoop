@@ -224,7 +224,11 @@ class AnalyzeMealRequest(BaseModel):
     meal_type: MealType
     dietary_preferences: Optional[str] = "no specific restrictions"
     allergies: Optional[str] = "none"
-    user_notes: Optional[str] = None
+    meal_description: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Optional user description of the meal to help AI identify foods (e.g., 'chicken dumplings with soy sauce')"
+    )
 
 
 class ConfirmMealRequest(BaseModel):

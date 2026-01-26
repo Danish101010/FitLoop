@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Camera, Upload, Image as ImageIcon, Sun, Coffee, Moon, Cookie } from 'lucide-react'
+import { Camera, Upload, Image as ImageIcon, Sun, Coffee, Moon, Cookie, MessageSquare } from 'lucide-react'
 
 const mealTypes = [
   { value: 'breakfast', label: 'Breakfast', icon: Coffee },
@@ -8,7 +8,7 @@ const mealTypes = [
   { value: 'snack', label: 'Snack', icon: Cookie },
 ]
 
-function ImageUpload({ onImageSelect, mealType, onMealTypeChange }) {
+function ImageUpload({ onImageSelect, mealType, onMealTypeChange, mealDescription, onMealDescriptionChange }) {
   const fileInputRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -78,6 +78,27 @@ function ImageUpload({ onImageSelect, mealType, onMealTypeChange }) {
             )
           })}
         </div>
+      </div>
+
+      {/* Optional Meal Description */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <MessageSquare className="w-4 h-4 text-gray-400" />
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+            Describe your meal (optional)
+          </h3>
+        </div>
+        <textarea
+          value={mealDescription || ''}
+          onChange={(e) => onMealDescriptionChange(e.target.value)}
+          placeholder="Help the AI identify your food better, e.g., 'Chicken dumplings with soy sauce' or 'Veggie wrap with hummus and feta'"
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-300 focus:ring focus:ring-primary-100 focus:ring-opacity-50 transition-all text-gray-700 placeholder-gray-400 resize-none"
+          rows={2}
+          maxLength={500}
+        />
+        <p className="text-xs text-gray-400 mt-2">
+          💡 Especially useful for foods where contents aren't visible (dumplings, wraps, sandwiches, etc.)
+        </p>
       </div>
 
       {/* Upload Area */}

@@ -38,6 +38,7 @@ export default function MainApp() {
   const [pidAnalysis, setPidAnalysis] = useState(null)
   const [selectedImage, setSelectedImage] = useState(null)
   const [mealType, setMealType] = useState('lunch')
+  const [mealDescription, setMealDescription] = useState('')
 
   // Daily progress state
   const [dailyProgress, setDailyProgress] = useState({
@@ -74,7 +75,7 @@ export default function MainApp() {
     setAppState(STATES.ANALYZING)
 
     try {
-      const response = await analyzeMeal(imageBase64, mealType)
+      const response = await analyzeMeal(imageBase64, mealType, mealDescription)
       console.log('API Response:', response)
       
       if (response.success) {
@@ -129,6 +130,16 @@ export default function MainApp() {
 
   const fetchPidAnalysis = async () => {
     try {
+      // Determine meal type based on time of day
+      const now = new Date()
+      const hour = now.getHours()
+      let mealType = 'snack'
+      if (hour >= 5 && hour < 11) mealType = 'breakfast'
+      else if (hour >= 11 && hour < 15) mealType = 'lunch'
+      else if (hour >= 17 && hour < 21) mealType = 'dinner'
+      
+      const timeOfDay = now.toTimeString().slice(0, 5) // HH:MM format
+      
       const response = await getPidAnalysis(mealId, {
         user_profile: {
           age: 30,
@@ -152,6 +163,21 @@ export default function MainApp() {
           fiber_g: 15,
           meals_logged: 2,
         },
+        weekly_summary: {
+          avg_calories: dailyProgress.calories.target * 0.95,
+          avg_protein: dailyProgress.protein.target * 0.9,
+          avg_carbs: dailyProgress.carbs.target,
+          avg_fat: dailyProgress.fat.target,
+          avg_fiber: 25,
+          trend_calories: 'stable',
+          trend_protein: 'stable',
+          trend_carbs: 'stable',
+          trend_fat: 'stable',
+          trend_fiber: 'stable',
+        },
+        current_meal_type: mealType,
+        time_of_day: timeOfDay,
+        meals_remaining: mealType === 'breakfast' ? 3 : mealType === 'lunch' ? 2 : mealType === 'dinner' ? 0 : 1,
       })
 
       if (response.success) {
@@ -174,6 +200,7 @@ export default function MainApp() {
     setConfirmedMeal(null)
     setPidAnalysis(null)
     setSelectedImage(null)
+    setMealDescription('')
   }
 
   const renderMealLogging = () => {
@@ -184,6 +211,8 @@ export default function MainApp() {
             onImageSelect={handleImageSelect}
             mealType={mealType}
             onMealTypeChange={setMealType}
+            mealDescription={mealDescription}
+            onMealDescriptionChange={setMealDescription}
           />
         )
       
