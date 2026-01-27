@@ -30,27 +30,47 @@ export default function ProgressDashboard() {
   const [weeklyData, setWeeklyData] = useState(null)
   const [monthlyData, setMonthlyData] = useState(null)
   const [todayData, setTodayData] = useState(null)
+  const [loadingMonthly, setLoadingMonthly] = useState(false)
 
   useEffect(() => {
     loadProgressData()
   }, [])
 
+  // Load monthly data only when monthly tab is selected
+  useEffect(() => {
+    if (activeTab === 'monthly' && !monthlyData && !loadingMonthly) {
+      loadMonthlyData()
+    }
+  }, [activeTab])
+
   const loadProgressData = async () => {
     setLoading(true)
     try {
-      const [today, weekly, monthly] = await Promise.all([
+      // Load today and weekly in parallel (skip monthly for faster initial load)
+      const [today, weekly] = await Promise.all([
         getTodayFullProgress(),
-        getWeeklyProgress(),
-        getMonthlyProgress()
+        getWeeklyProgress()
       ])
       setTodayData(today)
       setWeeklyData(weekly)
-      setMonthlyData(monthly)
     } catch (error) {
       console.error('Failed to load progress:', error)
       toast.error('Failed to load progress data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMonthlyData = async () => {
+    setLoadingMonthly(true)
+    try {
+      const monthly = await getMonthlyProgress()
+      setMonthlyData(monthly)
+    } catch (error) {
+      console.error('Failed to load monthly progress:', error)
+      toast.error('Failed to load monthly data')
+    } finally {
+      setLoadingMonthly(false)
     }
   }
 
@@ -114,8 +134,27 @@ export default function ProgressDashboard() {
       <>
         <PageHeader title="Progress" subtitle="Track your nutrition journey" />
         <PageContent>
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-brand-600 border-t-transparent"></div>
+          <div className="space-y-6 animate-pulse">
+            {/* Skeleton for coaching card */}
+            <Card>
+              <CardBody>
+                <div className="h-24 bg-gray-200 rounded-lg"></div>
+              </CardBody>
+            </Card>
+            {/* Skeleton for quick stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[1,2,3,4].map(i => (
+                <Card key={i}>
+                  <CardBody>
+                    <div className="h-16 bg-gray-200 rounded"></div>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+            {/* Skeleton for tabs */}
+            <Card>
+              <div className="h-12 bg-gray-100"></div>
+            </Card>
           </div>
         </PageContent>
       </>
@@ -360,7 +399,15 @@ export default function ProgressDashboard() {
           )}
 
           {/* Monthly View */}
-          {activeTab === 'monthly' && monthlyData && (
+          {activeTab === 'monthly' && loadingMonthly && (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-brand-600 border-t-transparent mx-auto"></div>
+                <p className="text-muted mt-3">Loading monthly data...</p>
+              </div>
+            </div>
+          )}
+          {activeTab === 'monthly' && !loadingMonthly && monthlyData && (
             <div className="space-y-6 animate-fade-in">
               <Card>
                 <CardHeader>
