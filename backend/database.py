@@ -60,7 +60,15 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(200), nullable=True)
     
-    # Profile settings
+    # Body metrics (for calculating nutrition targets)
+    age = Column(Integer, default=30)
+    gender = Column(String(20), default="male")  # male, female
+    height_cm = Column(Float, default=170)
+    weight_kg = Column(Float, default=70)
+    activity_level = Column(String(50), default="moderately_active")  # sedentary, lightly_active, moderately_active, very_active, extra_active
+    fitness_goal = Column(String(50), default="maintain")  # lose_weight, lose_weight_slow, maintain, gain_muscle, gain_weight
+    
+    # Calculated nutrition targets
     calorie_target = Column(Integer, default=2000)
     protein_target = Column(Integer, default=150)
     carbs_target = Column(Integer, default=250)
@@ -79,6 +87,9 @@ class User(Base):
     # Relationships
     meals = relationship("MealLog", back_populates="user", cascade="all, delete-orphan")
     daily_summaries = relationship("DailySummary", back_populates="user", cascade="all, delete-orphan")
+    water_logs = relationship("WaterLog", back_populates="user", cascade="all, delete-orphan")
+    water_goal = relationship("UserWaterGoal", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    workout_logs = relationship("WorkoutLog", back_populates="user", cascade="all, delete-orphan")
 
 
 class MealLog(Base):
@@ -151,6 +162,78 @@ class DailySummary(Base):
     __table_args__ = (
         UniqueConstraint('user_id', 'summary_date', name='unique_user_date'),
     )
+
+
+class WaterLog(Base):
+    """Individual water intake log entry"""
+    __tablename__ = "water_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    log_date = Column(Date, nullable=False, index=True)
+    log_time = Column(DateTime, default=datetime.utcnow)
+    
+    # Amount in milliliters
+    amount_ml = Column(Integer, nullable=False)
+    
+    # Optional note (e.g., "morning coffee", "post-workout")
+    note = Column(String(200), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="water_logs")
+
+
+class UserWaterGoal(Base):
+    """User's daily water intake goal"""
+    __tablename__ = "user_water_goals"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    
+    # Daily goal in milliliters (default 2000ml = 2L)
+    daily_goal_ml = Column(Integer, default=2000)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="water_goal")
+
+
+class WorkoutLog(Base):
+    """Workout/exercise log entry"""
+    __tablename__ = "workout_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    log_date = Column(Date, nullable=False, index=True)
+    log_time = Column(DateTime, default=datetime.utcnow)
+    
+    # Workout details
+    workout_type = Column(String(50), nullable=False)  # cardio, strength, flexibility, sports, other
+    workout_name = Column(String(200), nullable=True)  # e.g., "Running", "Weight lifting", "Yoga"
+    
+    # Duration in minutes
+    duration_minutes = Column(Integer, nullable=False)
+    
+    # Estimated calories burned (optional - can be calculated or manually entered)
+    calories_burned = Column(Integer, nullable=True)
+    
+    # Intensity level (optional)
+    intensity = Column(String(20), nullable=True)  # low, moderate, high
+    
+    # Optional notes
+    notes = Column(String(500), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="workout_logs")
 
 
 # =============================================================================

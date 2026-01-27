@@ -304,3 +304,155 @@ class CorrectionLog(BaseModel):
     correction_type: Literal["food_name", "portion", "both", "added_item", "removed_item"]
     timestamp: datetime
 
+
+# =============================================================================
+# WATER INTAKE MODELS
+# =============================================================================
+class WaterIntakeType(str, Enum):
+    WATER = "water"
+    TEA = "tea"
+    COFFEE = "coffee"
+    JUICE = "juice"
+    OTHER = "other"
+
+
+class WaterLogCreate(BaseModel):
+    """Request to log water intake."""
+    amount_ml: int = Field(ge=1, le=5000, description="Water amount in milliliters")
+    note: Optional[str] = Field(default=None, max_length=200, description="Optional note")
+
+
+class WaterLogResponse(BaseModel):
+    """Response for a single water log entry."""
+    id: int
+    user_id: int
+    log_date: date
+    log_time: datetime
+    amount_ml: int
+    note: Optional[str] = None
+    created_at: datetime
+
+
+class WaterDailySummary(BaseModel):
+    """Daily water intake summary."""
+    date: date
+    total_ml: int = 0
+    goal_ml: int = 2000
+    percent_complete: float = 0
+    logs_count: int = 0
+    logs: list[WaterLogResponse] = Field(default_factory=list)
+
+
+class WaterWeeklySummary(BaseModel):
+    """Weekly water intake summary."""
+    week_start: date
+    week_end: date
+    daily_summaries: list[WaterDailySummary] = Field(default_factory=list)
+    avg_daily_ml: float = 0
+    goal_met_days: int = 0
+    total_ml: int = 0
+
+
+class WaterGoalUpdate(BaseModel):
+    """Request to update water goal."""
+    daily_goal_ml: int = Field(ge=500, le=10000, description="Daily water goal in milliliters")
+
+
+class WaterGoalResponse(BaseModel):
+    """Response for water goal."""
+    user_id: int
+    daily_goal_ml: int = 2000
+
+
+# =============================================================================
+# WORKOUT LOGGING MODELS
+# =============================================================================
+class WorkoutType(str, Enum):
+    CARDIO = "cardio"
+    STRENGTH = "strength"
+    FLEXIBILITY = "flexibility"
+    SPORTS = "sports"
+    HIIT = "hiit"
+    WALKING = "walking"
+    RUNNING = "running"
+    CYCLING = "cycling"
+    SWIMMING = "swimming"
+    YOGA = "yoga"
+    OTHER = "other"
+
+
+class WorkoutIntensity(str, Enum):
+    LOW = "low"
+    MODERATE = "moderate"
+    HIGH = "high"
+
+
+class WorkoutLogCreate(BaseModel):
+    """Request to log a workout."""
+    workout_type: WorkoutType
+    workout_name: Optional[str] = Field(default=None, max_length=200, description="Custom workout name")
+    duration_minutes: int = Field(ge=1, le=600, description="Workout duration in minutes")
+    calories_burned: Optional[int] = Field(default=None, ge=0, le=5000, description="Estimated calories burned")
+    intensity: Optional[WorkoutIntensity] = None
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
+class WorkoutLogResponse(BaseModel):
+    """Response for a single workout log entry."""
+    id: int
+    user_id: int
+    log_date: date
+    log_time: datetime
+    workout_type: str
+    workout_name: Optional[str] = None
+    duration_minutes: int
+    calories_burned: Optional[int] = None
+    intensity: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+
+
+class WorkoutDailySummary(BaseModel):
+    """Daily workout summary."""
+    date: date
+    total_duration_minutes: int = 0
+    total_calories_burned: int = 0
+    workouts_count: int = 0
+    workouts: list[WorkoutLogResponse] = Field(default_factory=list)
+
+
+class WorkoutWeeklySummary(BaseModel):
+    """Weekly workout summary."""
+    week_start: date
+    week_end: date
+    daily_summaries: list[WorkoutDailySummary] = Field(default_factory=list)
+    total_duration_minutes: int = 0
+    total_calories_burned: int = 0
+    total_workouts: int = 0
+    avg_daily_duration: float = 0
+    workout_days: int = 0
+
+
+# =============================================================================
+# EXTENDED DAILY PROGRESS MODEL
+# =============================================================================
+class DailyProgressSummary(BaseModel):
+    """Complete daily progress including nutrition, water, and workouts."""
+    date: date
+    
+    # Nutrition
+    nutrition: dict = Field(default_factory=dict)
+    
+    # Water
+    water_total_ml: int = 0
+    water_goal_ml: int = 2000
+    water_percent: float = 0
+    
+    # Workouts
+    workout_count: int = 0
+    workout_duration_minutes: int = 0
+    workout_calories_burned: int = 0
+    
+    # Net calories (food intake - workout calories)
+    net_calories: float = 0
+

@@ -24,10 +24,22 @@ from models import (
     PidAnalysisRequest,
     FoodItem,
     MealType,
+    # Water tracking models
+    WaterLogCreate,
+    WaterLogResponse,
+    WaterDailySummary,
+    WaterWeeklySummary,
+    WaterGoalUpdate,
+    WaterGoalResponse,
+    # Workout logging models
+    WorkoutLogCreate,
+    WorkoutLogResponse,
+    WorkoutDailySummary,
+    WorkoutWeeklySummary,
 )
 from orchestrator import get_orchestrator, MealAnalysisOrchestrator
 from config import RATE_LIMIT_MEALS_PER_HOUR, RATE_LIMIT_PID_PER_HOUR
-from database import get_db, User, MealLog, DailySummary, init_db
+from database import get_db, User, MealLog, DailySummary, WaterLog, UserWaterGoal, WorkoutLog, init_db
 from auth import (
     UserCreate, UserLogin, UserResponse, UserUpdate, Token,
     create_user, authenticate_user, update_user,
@@ -722,6 +734,495 @@ async def get_meal_history(
         "total": db.query(MealLog).filter(MealLog.user_id == user.id).count(),
         "limit": limit,
         "offset": offset,
+    }
+
+
+# =============================================================================
+# WATER TRACKING ENDPOINTS
+# =============================================================================
+@app.post("/api/v1/water/log", response_model=WaterLogResponse, tags=["Water"])
+async def log_water_intake(
+    request: WaterLogCreate,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Log water intake."""
+    today = date.today()
+    
+    water_log = WaterLog(
+        user_id=user.id,
+        log_date=today,
+        amount_ml=request.amount_ml,
+        note=request.note,
+    )
+    db.add(water_log)
+    db.commit()
+    db.refresh(water_log)
+    
+    logger.info(f"Water logged for user {user.id}: {request.amount_ml}ml")
+    
+    return WaterLogResponse(
+        id=water_log.id,
+        user_id=water_log.user_id,
+        log_date=water_log.log_date,
+        log_time=water_log.log_time,
+        amount_ml=water_log.amount_ml,
+        note=water_log.note,
+        created_at=water_log.created_at,
+    )
+
+
+@app.delete("/api/v1/water/log/{log_id}", tags=["Water"])
+async def delete_water_log(
+    log_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Delete a water log entry."""
+    water_log = db.query(WaterLog).filter(
+        WaterLog.id == log_id,
+        WaterLog.user_id == user.id
+    ).first()
+    
+    if not water_log:
+        raise HTTPException(status_code=404, detail="Water log not found")
+    
+    db.delete(water_log)
+    db.commit()
+    
+    return {"success": True, "message": "Water log deleted"}
+
+
+@app.get("/api/v1/water/today", response_model=WaterDailySummary, tags=["Water"])
+async def get_today_water(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get today's water intake summary."""
+    today = date.today()
+    
+    # Get user's water goal
+    water_goal = db.query(UserWaterGoal).filter(
+        UserWaterGoal.user_id == user.id
+    ).first()
+    goal_ml = water_goal.daily_goal_ml if water_goal else 2000
+    
+    # Get today's water logs
+    logs = db.query(WaterLog).filter(
+        WaterLog.user_id == user.id,
+        WaterLog.log_date == today
+    ).order_by(WaterLog.log_time).all()
+    
+    total_ml = sum(log.amount_ml for log in logs)
+    percent_complete = round((total_ml / goal_ml) * 100, 1) if goal_ml > 0 else 0
+    
+    return WaterDailySummary(
+        date=today,
+        total_ml=total_ml,
+        goal_ml=goal_ml,
+        percent_complete=min(percent_complete, 100),
+        logs_count=len(logs),
+        logs=[
+            WaterLogResponse(
+                id=log.id,
+                user_id=log.user_id,
+                log_date=log.log_date,
+                log_time=log.log_time,
+                amount_ml=log.amount_ml,
+                note=log.note,
+                created_at=log.created_at,
+            )
+            for log in logs
+        ]
+    )
+
+
+@app.get("/api/v1/water/weekly", response_model=WaterWeeklySummary, tags=["Water"])
+async def get_weekly_water(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get last 7 days of water intake."""
+    today = date.today()
+    week_ago = today - timedelta(days=6)
+    
+    # Get user's water goal
+    water_goal = db.query(UserWaterGoal).filter(
+        UserWaterGoal.user_id == user.id
+    ).first()
+    goal_ml = water_goal.daily_goal_ml if water_goal else 2000
+    
+    # Get all water logs for the week
+    logs = db.query(WaterLog).filter(
+        WaterLog.user_id == user.id,
+        WaterLog.log_date >= week_ago,
+        WaterLog.log_date <= today
+    ).order_by(WaterLog.log_date, WaterLog.log_time).all()
+    
+    # Group by date
+    logs_by_date = {}
+    for log in logs:
+        if log.log_date not in logs_by_date:
+            logs_by_date[log.log_date] = []
+        logs_by_date[log.log_date].append(log)
+    
+    # Build daily summaries
+    daily_summaries = []
+    total_ml = 0
+    goal_met_days = 0
+    
+    for i in range(7):
+        day_date = week_ago + timedelta(days=i)
+        day_logs = logs_by_date.get(day_date, [])
+        day_total = sum(log.amount_ml for log in day_logs)
+        total_ml += day_total
+        
+        percent = round((day_total / goal_ml) * 100, 1) if goal_ml > 0 else 0
+        if day_total >= goal_ml:
+            goal_met_days += 1
+        
+        daily_summaries.append(WaterDailySummary(
+            date=day_date,
+            total_ml=day_total,
+            goal_ml=goal_ml,
+            percent_complete=min(percent, 100),
+            logs_count=len(day_logs),
+            logs=[
+                WaterLogResponse(
+                    id=log.id,
+                    user_id=log.user_id,
+                    log_date=log.log_date,
+                    log_time=log.log_time,
+                    amount_ml=log.amount_ml,
+                    note=log.note,
+                    created_at=log.created_at,
+                )
+                for log in day_logs
+            ]
+        ))
+    
+    avg_daily = round(total_ml / 7, 1)
+    
+    return WaterWeeklySummary(
+        week_start=week_ago,
+        week_end=today,
+        daily_summaries=daily_summaries,
+        avg_daily_ml=avg_daily,
+        goal_met_days=goal_met_days,
+        total_ml=total_ml,
+    )
+
+
+@app.get("/api/v1/water/goal", response_model=WaterGoalResponse, tags=["Water"])
+async def get_water_goal(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get user's daily water goal."""
+    water_goal = db.query(UserWaterGoal).filter(
+        UserWaterGoal.user_id == user.id
+    ).first()
+    
+    if not water_goal:
+        # Create default goal
+        water_goal = UserWaterGoal(user_id=user.id, daily_goal_ml=2000)
+        db.add(water_goal)
+        db.commit()
+        db.refresh(water_goal)
+    
+    return WaterGoalResponse(
+        user_id=water_goal.user_id,
+        daily_goal_ml=water_goal.daily_goal_ml,
+    )
+
+
+@app.put("/api/v1/water/goal", response_model=WaterGoalResponse, tags=["Water"])
+async def update_water_goal(
+    request: WaterGoalUpdate,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Update user's daily water goal."""
+    water_goal = db.query(UserWaterGoal).filter(
+        UserWaterGoal.user_id == user.id
+    ).first()
+    
+    if not water_goal:
+        water_goal = UserWaterGoal(user_id=user.id, daily_goal_ml=request.daily_goal_ml)
+        db.add(water_goal)
+    else:
+        water_goal.daily_goal_ml = request.daily_goal_ml
+    
+    db.commit()
+    db.refresh(water_goal)
+    
+    logger.info(f"Water goal updated for user {user.id}: {request.daily_goal_ml}ml")
+    
+    return WaterGoalResponse(
+        user_id=water_goal.user_id,
+        daily_goal_ml=water_goal.daily_goal_ml,
+    )
+
+
+# =============================================================================
+# WORKOUT LOGGING ENDPOINTS
+# =============================================================================
+@app.post("/api/v1/workouts/log", response_model=WorkoutLogResponse, tags=["Workouts"])
+async def log_workout(
+    request: WorkoutLogCreate,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Log a workout."""
+    today = date.today()
+    
+    # Estimate calories if not provided
+    calories_burned = request.calories_burned
+    if calories_burned is None:
+        # Basic estimation based on duration and intensity
+        # MET values: low=3, moderate=5, high=8
+        met_values = {"low": 3, "moderate": 5, "high": 8}
+        intensity = request.intensity.value if request.intensity else "moderate"
+        met = met_values.get(intensity, 5)
+        # Calories = MET * weight(kg) * duration(hours)
+        weight_kg = user.weight_kg if user.weight_kg else 70
+        calories_burned = int(met * weight_kg * (request.duration_minutes / 60))
+    
+    workout_log = WorkoutLog(
+        user_id=user.id,
+        log_date=today,
+        workout_type=request.workout_type.value,
+        workout_name=request.workout_name,
+        duration_minutes=request.duration_minutes,
+        calories_burned=calories_burned,
+        intensity=request.intensity.value if request.intensity else None,
+        notes=request.notes,
+    )
+    db.add(workout_log)
+    db.commit()
+    db.refresh(workout_log)
+    
+    logger.info(f"Workout logged for user {user.id}: {request.workout_type} for {request.duration_minutes}min")
+    
+    return WorkoutLogResponse(
+        id=workout_log.id,
+        user_id=workout_log.user_id,
+        log_date=workout_log.log_date,
+        log_time=workout_log.log_time,
+        workout_type=workout_log.workout_type,
+        workout_name=workout_log.workout_name,
+        duration_minutes=workout_log.duration_minutes,
+        calories_burned=workout_log.calories_burned,
+        intensity=workout_log.intensity,
+        notes=workout_log.notes,
+        created_at=workout_log.created_at,
+    )
+
+
+@app.delete("/api/v1/workouts/log/{log_id}", tags=["Workouts"])
+async def delete_workout_log(
+    log_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Delete a workout log entry."""
+    workout_log = db.query(WorkoutLog).filter(
+        WorkoutLog.id == log_id,
+        WorkoutLog.user_id == user.id
+    ).first()
+    
+    if not workout_log:
+        raise HTTPException(status_code=404, detail="Workout log not found")
+    
+    db.delete(workout_log)
+    db.commit()
+    
+    return {"success": True, "message": "Workout log deleted"}
+
+
+@app.get("/api/v1/workouts/today", response_model=WorkoutDailySummary, tags=["Workouts"])
+async def get_today_workouts(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get today's workouts summary."""
+    today = date.today()
+    
+    workouts = db.query(WorkoutLog).filter(
+        WorkoutLog.user_id == user.id,
+        WorkoutLog.log_date == today
+    ).order_by(WorkoutLog.log_time).all()
+    
+    total_duration = sum(w.duration_minutes for w in workouts)
+    total_calories = sum(w.calories_burned or 0 for w in workouts)
+    
+    return WorkoutDailySummary(
+        date=today,
+        total_duration_minutes=total_duration,
+        total_calories_burned=total_calories,
+        workouts_count=len(workouts),
+        workouts=[
+            WorkoutLogResponse(
+                id=w.id,
+                user_id=w.user_id,
+                log_date=w.log_date,
+                log_time=w.log_time,
+                workout_type=w.workout_type,
+                workout_name=w.workout_name,
+                duration_minutes=w.duration_minutes,
+                calories_burned=w.calories_burned,
+                intensity=w.intensity,
+                notes=w.notes,
+                created_at=w.created_at,
+            )
+            for w in workouts
+        ]
+    )
+
+
+@app.get("/api/v1/workouts/weekly", response_model=WorkoutWeeklySummary, tags=["Workouts"])
+async def get_weekly_workouts(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get last 7 days of workouts."""
+    today = date.today()
+    week_ago = today - timedelta(days=6)
+    
+    workouts = db.query(WorkoutLog).filter(
+        WorkoutLog.user_id == user.id,
+        WorkoutLog.log_date >= week_ago,
+        WorkoutLog.log_date <= today
+    ).order_by(WorkoutLog.log_date, WorkoutLog.log_time).all()
+    
+    # Group by date
+    workouts_by_date = {}
+    for w in workouts:
+        if w.log_date not in workouts_by_date:
+            workouts_by_date[w.log_date] = []
+        workouts_by_date[w.log_date].append(w)
+    
+    # Build daily summaries
+    daily_summaries = []
+    total_duration = 0
+    total_calories = 0
+    workout_days = 0
+    
+    for i in range(7):
+        day_date = week_ago + timedelta(days=i)
+        day_workouts = workouts_by_date.get(day_date, [])
+        
+        day_duration = sum(w.duration_minutes for w in day_workouts)
+        day_calories = sum(w.calories_burned or 0 for w in day_workouts)
+        
+        total_duration += day_duration
+        total_calories += day_calories
+        if day_workouts:
+            workout_days += 1
+        
+        daily_summaries.append(WorkoutDailySummary(
+            date=day_date,
+            total_duration_minutes=day_duration,
+            total_calories_burned=day_calories,
+            workouts_count=len(day_workouts),
+            workouts=[
+                WorkoutLogResponse(
+                    id=w.id,
+                    user_id=w.user_id,
+                    log_date=w.log_date,
+                    log_time=w.log_time,
+                    workout_type=w.workout_type,
+                    workout_name=w.workout_name,
+                    duration_minutes=w.duration_minutes,
+                    calories_burned=w.calories_burned,
+                    intensity=w.intensity,
+                    notes=w.notes,
+                    created_at=w.created_at,
+                )
+                for w in day_workouts
+            ]
+        ))
+    
+    return WorkoutWeeklySummary(
+        week_start=week_ago,
+        week_end=today,
+        daily_summaries=daily_summaries,
+        total_duration_minutes=total_duration,
+        total_calories_burned=total_calories,
+        total_workouts=len(workouts),
+        avg_daily_duration=round(total_duration / 7, 1),
+        workout_days=workout_days,
+    )
+
+
+# =============================================================================
+# EXTENDED PROGRESS ENDPOINTS (with water & workouts)
+# =============================================================================
+@app.get("/api/v1/progress/today/full", tags=["Progress"])
+async def get_today_full_progress(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get today's full progress including nutrition, water, and workouts."""
+    today = date.today()
+    
+    # Get nutrition summary
+    nutrition_summary = db.query(DailySummary).filter(
+        DailySummary.user_id == user.id,
+        DailySummary.summary_date == today
+    ).first()
+    
+    # Get water data
+    water_goal = db.query(UserWaterGoal).filter(
+        UserWaterGoal.user_id == user.id
+    ).first()
+    water_goal_ml = water_goal.daily_goal_ml if water_goal else 2000
+    
+    water_logs = db.query(WaterLog).filter(
+        WaterLog.user_id == user.id,
+        WaterLog.log_date == today
+    ).all()
+    water_total = sum(log.amount_ml for log in water_logs)
+    
+    # Get workout data
+    workouts = db.query(WorkoutLog).filter(
+        WorkoutLog.user_id == user.id,
+        WorkoutLog.log_date == today
+    ).all()
+    workout_duration = sum(w.duration_minutes for w in workouts)
+    workout_calories = sum(w.calories_burned or 0 for w in workouts)
+    
+    # Calculate net calories
+    food_calories = nutrition_summary.total_calories if nutrition_summary else 0
+    net_calories = food_calories - workout_calories
+    
+    return {
+        "date": today.isoformat(),
+        # Nutrition
+        "nutrition": {
+            "calories": {"consumed": food_calories, "target": user.calorie_target},
+            "protein": {"consumed": nutrition_summary.total_protein if nutrition_summary else 0, "target": user.protein_target},
+            "carbs": {"consumed": nutrition_summary.total_carbs if nutrition_summary else 0, "target": user.carbs_target},
+            "fat": {"consumed": nutrition_summary.total_fat if nutrition_summary else 0, "target": user.fat_target},
+            "fiber": {"consumed": nutrition_summary.total_fiber if nutrition_summary else 0, "target": user.fiber_target},
+            "meals_logged": nutrition_summary.meals_logged if nutrition_summary else 0,
+        },
+        # Water
+        "water": {
+            "total_ml": water_total,
+            "goal_ml": water_goal_ml,
+            "percent": round((water_total / water_goal_ml) * 100, 1) if water_goal_ml > 0 else 0,
+            "logs_count": len(water_logs),
+        },
+        # Workouts
+        "workouts": {
+            "count": len(workouts),
+            "duration_minutes": workout_duration,
+            "calories_burned": workout_calories,
+        },
+        # Net calories
+        "net_calories": net_calories,
+        "calorie_balance": user.calorie_target - net_calories,
     }
 
 

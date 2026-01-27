@@ -58,6 +58,14 @@ class UserResponse(BaseModel):
     email: str
     username: str
     full_name: Optional[str]
+    # Body metrics
+    age: Optional[int] = 30
+    gender: Optional[str] = "male"
+    height_cm: Optional[float] = 170
+    weight_kg: Optional[float] = 70
+    activity_level: Optional[str] = "moderately_active"
+    fitness_goal: Optional[str] = "maintain"
+    # Nutrition targets
     calorie_target: int
     protein_target: int
     carbs_target: int
@@ -74,6 +82,14 @@ class UserResponse(BaseModel):
 class UserUpdate(BaseModel):
     """Request model for updating user profile"""
     full_name: Optional[str] = None
+    # Body metrics
+    age: Optional[int] = Field(default=None, ge=15, le=100)
+    gender: Optional[str] = None  # male, female
+    height_cm: Optional[float] = Field(default=None, ge=100, le=250)
+    weight_kg: Optional[float] = Field(default=None, ge=30, le=300)
+    activity_level: Optional[str] = None  # sedentary, lightly_active, moderately_active, very_active, extra_active
+    fitness_goal: Optional[str] = None  # lose_weight, lose_weight_slow, maintain, gain_muscle, gain_weight
+    # Nutrition targets (calculated from body metrics)
     calorie_target: Optional[int] = Field(default=None, ge=1000, le=5000)
     protein_target: Optional[int] = Field(default=None, ge=50, le=500)
     carbs_target: Optional[int] = Field(default=None, ge=50, le=600)
