@@ -4,6 +4,7 @@ Version: 2.0.0 (With Auth & Progress Tracking)
 
 Main API endpoints for the food-logging nutrition app.
 """
+import os
 import logging
 import json
 import secrets
@@ -77,10 +78,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS middleware - configure allowed origins from environment
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS != ["*"] else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

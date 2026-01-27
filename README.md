@@ -1,429 +1,261 @@
 # FitLoop 🍎📸
 
-> AI-powered food logging and nutrition analysis using Google Gemini
+> AI-powered food logging and nutrition tracking with Google Gemini Vision
 
-## Overview
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
 
-FitLoop is a modern web app that uses computer vision and LLM-powered analysis to help users track their nutrition. Users photograph their meals, and Gemini AI handles:
+## What is FitLoop?
 
-- **Food Detection**: Identifies foods in images with confidence scores
-- **Portion Estimation**: Estimates serving sizes in grams
-- **Macro Calculation**: Computes calories, protein, carbs, fat, fiber
-- **PID Recommendations**: Provides personalized nutritional guidance using Proportional-Integral-Derivative analysis
-- **User Authentication**: Secure signup/login with JWT tokens
-- **Progress Tracking**: Daily, weekly, and monthly nutrition analytics
+FitLoop is a modern nutrition tracking app that uses AI to analyze your meals from photos. Simply snap a picture of your food, and Gemini AI will:
+
+- 🔍 **Detect foods** in your image with confidence scores
+- ⚖️ **Estimate portions** in grams with editable controls
+- 📊 **Calculate macros** (calories, protein, carbs, fat, fiber)
+- 💡 **Provide recommendations** using PID-based nutritional analysis
+- 📈 **Track progress** with daily, weekly, and monthly analytics
+
+## Features
+
+### Core Features
+- 📷 **Image-based meal logging** - Take a photo, get instant nutrition data
+- ✏️ **Portion editing** - Adjust portions with unit conversion (g, cups, tbsp, pieces)
+- 🎯 **Personalized targets** - Set custom calorie and macro goals
+- 📱 **Responsive design** - Works on mobile and desktop
+
+### Tracking & Analytics
+- 💧 **Water tracking** - Log daily water intake with custom goals
+- 🏋️ **Workout logging** - Track exercises and calories burned
+- 📅 **Daily summaries** - View nutrition totals at a glance
+- 📊 **Progress dashboard** - Weekly and monthly trends
+
+### User Management
+- 🔐 **Secure authentication** - JWT-based signup/login
+- 👤 **User profiles** - Age, weight, height, activity level
+- 🎯 **Fitness goals** - Lose weight, maintain, or build muscle
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
+| **Frontend** | React 18, Vite, Tailwind CSS, Lucide Icons |
 | **Backend** | Python 3.11, FastAPI, Pydantic, SQLAlchemy |
-| **Database** | Supabase (PostgreSQL), SQLite fallback |
+| **Database** | PostgreSQL (Supabase) / SQLite (local) |
 | **Auth** | JWT tokens, bcrypt password hashing |
-| **Frontend** | React 18, Vite, Tailwind CSS |
-| **AI/ML** | Google Gemini Vision API |
-| **Icons** | Lucide React |
-
-## Project Structure
-
-```
-FitLoop/
-├── README.md                    # This file
-├── requirements.txt             # Python dependencies
-│
-├── docs/                        # Documentation
-│   └── ARCHITECTURE.md          # Detailed MVP architecture
-│
-├── prompts/                     # Gemini prompt templates
-│   ├── vision_prompt.json       # Food detection prompt
-│   └── pid_prompt.json          # PID analysis prompt
-│
-├── schemas/                     # JSON schemas (v1)
-│   ├── food_detect_response_v1.json
-│   └── kpi_pid_response_v1.json
-│
-├── backend/                     # FastAPI backend
-│   ├── config.py               # Configuration and thresholds
-│   ├── models.py               # Pydantic models
-│   ├── database.py             # SQLAlchemy models & DB setup
-│   ├── auth.py                 # JWT authentication
-│   ├── image_processor.py      # Image compression/processing
-│   ├── gemini_client.py        # Gemini API wrapper
-│   ├── orchestrator.py         # Pipeline orchestration
-│   └── main.py                 # FastAPI application
-│
-├── api/                         # API documentation
-│   └── openapi.yaml            # OpenAPI 3.1 specification
-│
-├── frontend/                    # React frontend
-│   ├── index.html              # HTML entry point
-│   ├── package.json            # Node dependencies
-│   ├── vite.config.js          # Vite configuration
-│   ├── tailwind.config.js      # Tailwind CSS config
-│   ├── postcss.config.js       # PostCSS config
-│   ├── public/                 # Static assets
-│   └── src/
-│       ├── main.jsx            # React entry point
-│       ├── App.jsx             # Main application component
-│       ├── index.css           # Global styles
-│       ├── context/            # React context providers
-│       │   └── AuthContext.jsx # Authentication state
-│       ├── components/         # React components
-│       │   ├── Header.jsx
-│       │   ├── DailyProgress.jsx
-│       │   ├── ImageUpload.jsx
-│       │   ├── MealAnalysis.jsx
-│       │   ├── MealConfirmation.jsx
-│       │   ├── PidRecommendations.jsx
-│       │   ├── AuthPage.jsx    # Login/Signup page
-│       │   └── ProgressDashboard.jsx
-│       └── services/
-│           └── api.js          # API service layer
-│
-└── testing/                     # Test plan and data
-    ├── test_plan.md
-    └── sample_datasets.json
-```
+| **AI** | Google Gemini 2.5 Flash Vision API |
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.11+
-- Node.js 18+ and npm
-- Google Cloud project with Gemini API enabled
-- Gemini API key
+- Node.js 18+
+- [Gemini API Key](https://makersuite.google.com/app/apikey)
 
-### 1. Clone & Setup Python Environment
+### 1. Clone the Repository
 
 ```bash
+git clone https://github.com/yourusername/fitloop.git
 cd FitLoop
+```
 
-# Option A: Using pyenv (recommended)
-pyenv install 3.11.7
-pyenv local 3.11.7
-pyenv virtualenv 3.11.7 fitloop
-pyenv local fitloop
+### 2. Set Up Backend
 
-# Option B: Using venv
+```bash
+# Create virtual environment
 python3.11 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# Install Python dependencies
+# Install dependencies
 pip install -r requirements.txt
+
+# Create .env file
+cp backend/.env.example backend/.env
+# Edit backend/.env and add your GEMINI_API_KEY
 ```
 
-### 2. Environment Variables
-
-Create a `.env` file in the `backend/` directory:
-
-```bash
-# backend/.env
-
-# Required - Gemini API
-GEMINI_API_KEY=your-gemini-api-key-here
-
-# Required for production - Supabase Database
-# Get this from: Supabase Dashboard > Project Settings > Database > Connection string (URI)
-SUPABASE_DB_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
-
-# Optional - Use DATABASE_URL as alternative
-# DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
-
-# Optional - JWT Secret (auto-generated if not set)
-JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
-```
-
-**Note:** If `SUPABASE_DB_URL` is not set, the app falls back to SQLite (`fitloop.db`) for local development.
-
-### 3. Set Up Supabase (Recommended)
-
-1. **Create a Supabase account** at [supabase.com](https://supabase.com)
-
-2. **Create a new project** and note your:
-   - Project Reference ID (in the URL)
-   - Database Password (set during creation)
-
-3. **Get your connection string:**
-   - Go to **Project Settings** → **Database**
-   - Copy the **URI** connection string
-   - Replace `[YOUR-PASSWORD]` with your database password
-
-4. **Add to your `.env` file:**
-   ```bash
-   SUPABASE_DB_URL=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
-   ```
-
-5. **Tables are created automatically** when you start the backend.
-
-### 4. Start the Backend
-
-```bash
-cd backend
-uvicorn main:app --reload --port 8000
-```
-
-The API will be available at `http://localhost:8000`
-
-**Note**: On first run, database tables will be created automatically (in Supabase or local SQLite).
-
-### 5. Start the Frontend
+### 3. Set Up Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev
 ```
 
-The frontend will be available at `http://localhost:5173`
-
-### 6. Open the App
-
-Visit **http://localhost:5173** in your browser to start logging meals!
-
-## Local Development
-
-### Running Both Services (Recommended Setup)
-
-Open two terminal windows:
+### 4. Run the App
 
 **Terminal 1 - Backend:**
 ```bash
-cd FitLoop/backend
-source ../venv/bin/activate  # or use your pyenv
-export GEMINI_API_KEY="your-key"
+cd backend
 uvicorn main:app --reload --port 8000
 ```
 
 **Terminal 2 - Frontend:**
 ```bash
-cd FitLoop/frontend
+cd frontend
 npm run dev
 ```
 
-### Database Management
+Open **http://localhost:3000** in your browser 🎉
 
-FitLoop uses **Supabase (PostgreSQL)** in production or **SQLite** for local development.
+## Environment Variables
 
-#### Using Supabase (Recommended)
-
-**View tables in Supabase Dashboard:**
-1. Go to your Supabase project
-2. Click **Table Editor** in the sidebar
-3. You'll see: `users`, `meal_logs`, `daily_summaries`
-
-**Run SQL queries:**
-1. Go to **SQL Editor** in Supabase Dashboard
-2. Run queries like:
-   ```sql
-   SELECT * FROM users;
-   SELECT * FROM meal_logs ORDER BY created_at DESC LIMIT 10;
-   ```
-
-**Reset Database:**
-```sql
--- Run in Supabase SQL Editor
-TRUNCATE TABLE daily_summaries, meal_logs, users RESTART IDENTITY CASCADE;
-```
-
-#### Using SQLite (Local Fallback)
-
-If `SUPABASE_DB_URL` is not set, SQLite is used automatically.
-
-**View Database:**
-```bash
-sqlite3 backend/fitloop.db
-.tables                    # List all tables
-SELECT * FROM users;       # View users
-.quit
-```
-
-**Reset Database:**
-```bash
-rm backend/fitloop.db      # Delete and restart backend
-```
-
-### API Testing
-
-Use the built-in Swagger UI at `http://localhost:8000/docs` to test endpoints.
-
-**Test Auth Flow:**
-1. POST `/api/v1/auth/signup` - Create account
-2. POST `/api/v1/auth/login` - Get JWT token
-3. Use the "Authorize" button in Swagger to add your token
-4. Access protected endpoints
-
-### Hot Reload
-
-Both backend and frontend support hot reload:
-- **Backend**: Changes to Python files auto-reload uvicorn
-- **Frontend**: Vite HMR updates the browser instantly
-
-## API Documentation
-
-Once the backend is running:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-## API Flow
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Upload Image  │────▶│  Analyze Meal   │────▶│ Review & Edit   │
-│   Select Type   │     │  (Gemini AI)    │     │  Detected Items │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                                                         │
-                                                         ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ View Next Meal  │◀────│  PID Analysis   │◀────│  Confirm Meal   │
-│   Suggestions   │     │ Recommendations │     │   Log to DB     │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-```
-
-### API Endpoints
-
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/health` | GET | No | Health check |
-| `/api/v1/auth/signup` | POST | No | Create new account |
-| `/api/v1/auth/login` | POST | No | Login & get JWT token |
-| `/api/v1/auth/me` | GET | Yes | Get current user profile |
-| `/api/v1/auth/me` | PUT | Yes | Update user profile |
-| `/api/v1/meals/analyze` | POST | Optional | Analyze food image |
-| `/api/v1/meals/{meal_id}/confirm` | POST | Optional | Confirm/correct meal |
-| `/api/v1/meals/{meal_id}/pid` | POST | Optional | Get PID recommendations |
-| `/api/v1/progress/today` | GET | Yes | Today's nutrition progress |
-| `/api/v1/progress/weekly` | GET | Yes | Last 7 days progress |
-| `/api/v1/progress/monthly` | GET | Yes | Last 30 days progress |
-| `/api/v1/meals/history` | GET | Yes | User's meal history |
-
-## Configuration
-
-### Backend Environment Variables
+### Backend (`backend/.env`)
 
 ```bash
 # Required
-GEMINI_API_KEY=your-gemini-api-key
+GEMINI_API_KEY=your_gemini_api_key_here
+SECRET_KEY=your_jwt_secret_key  # Generate: openssl rand -hex 32
 
-# Required for production - Supabase
-SUPABASE_DB_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+# Optional - Database (defaults to SQLite)
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
 
-# Alternative database URL (if SUPABASE_DB_URL not set)
-# DATABASE_URL=sqlite:///./fitloop.db  # SQLite fallback (auto-used if no Supabase URL)
-
-# Optional - Authentication
-JWT_SECRET_KEY=your-secret-key    # For JWT token signing
-
-# Optional - Confidence Thresholds
-FOOD_ID_AUTO_ACCEPT=0.80      # Auto-accept above this
-FOOD_ID_CONFIRM_MIN=0.55      # Confirm between 0.55-0.79
-PORTION_AUTO_ACCEPT=0.75      # Auto-accept above this
-
-# Optional - Image Processing
-IMAGE_MAX_DIMENSION=1024      # Max image dimension (pixels)
-IMAGE_JPEG_QUALITY=85         # JPEG compression quality
+# Optional - CORS (defaults to allow all)
+CORS_ORIGINS=https://your-frontend.com
 ```
 
-### Frontend Configuration
-
-The frontend uses Vite's proxy feature to forward `/api` requests to the backend. This is configured in `vite.config.js`:
-
-```javascript
-server: {
-  port: 5173,
-  proxy: {
-    '/api': {
-      target: 'http://localhost:8000',
-      changeOrigin: true,
-    },
-  },
-}
-```
-
-## Features
-
-### 🔐 User Authentication
-- Secure signup with email/password
-- JWT-based login sessions (7-day expiry)
-- Customizable nutrition targets per user
-- Guest mode for trying without an account
-
-### 📊 Progress Tracking
-- **Daily**: Real-time progress bars for all macros
-- **Weekly**: 7-day charts with daily breakdowns
-- **Monthly**: 30-day trends with weekly summaries
-- Meal history with full nutrition details
-
-### 📷 AI-Powered Meal Logging
-- Drag & drop or click to upload meal photos
-- Supports JPG, PNG, HEIC formats
-- Real-time food detection with confidence scores
-- Edit detected items and portions before confirming
-
-### 💡 Smart Recommendations
-- PID-based nutritional analysis
-- Priority-ranked suggestions
-- Food recommendations to hit daily targets
-- Next meal ideas with nutrition estimates
-
-## Development
-
-### Running in Development Mode
-
-**Backend** (with hot reload):
-```bash
-cd backend
-uvicorn main:app --reload --port 8000
-```
-
-**Frontend** (with hot module replacement):
-```bash
-cd frontend
-npm run dev
-```
-
-### Building for Production
+### Frontend (`frontend/.env`)
 
 ```bash
-cd frontend
-npm run build
-npm run preview  # Preview production build locally
+# Required for production (leave empty for local dev)
+VITE_API_URL=https://your-backend-api.com
 ```
 
-## Testing
+## Project Structure
 
-```bash
-# Run backend tests
-pytest testing/ -v
-
-# Run with coverage
-pytest testing/ --cov=backend --cov-report=html
+```
+FitLoop/
+├── backend/                 # FastAPI backend
+│   ├── main.py             # API endpoints
+│   ├── models.py           # Pydantic schemas
+│   ├── database.py         # SQLAlchemy models
+│   ├── auth.py             # JWT authentication
+│   ├── gemini_client.py    # Gemini API wrapper
+│   ├── orchestrator.py     # Meal analysis pipeline
+│   ├── analytics.py        # Progress analytics
+│   └── config.py           # Configuration
+│
+├── frontend/               # React frontend
+│   └── src/
+│       ├── components/     # React components
+│       ├── context/        # Auth context
+│       └── services/       # API client
+│
+├── prompts/                # Gemini prompt templates
+├── schemas/                # JSON response schemas
+├── docs/                   # Documentation
+└── testing/                # Test plans & data
 ```
 
-## Architecture Decisions
+## API Endpoints
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Database | Supabase (PostgreSQL) | Free tier, managed, real-time capable |
-| Authentication | JWT + bcrypt | Stateless, secure password hashing |
-| Image Upload | Direct base64 | MVP simplicity, S3-ready abstraction |
-| Frontend Framework | React + Vite | Fast development, modern DX |
-| Styling | Tailwind CSS | Utility-first, rapid UI development |
-| State Management | React Context | Auth state + useState for components |
-| API Communication | Axios | Promise-based, interceptors support |
-| Confidence Thresholds | Balanced (0.80/0.75) | Good UX/accuracy balance |
-| Gemini Calls | Two-call flow | Vision → Confirm → PID for accuracy |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/auth/signup` | Create account |
+| `POST` | `/api/v1/auth/login` | Login |
+| `GET` | `/api/v1/auth/me` | Get current user |
+| `POST` | `/api/v1/meals/analyze` | Analyze meal image |
+| `POST` | `/api/v1/meals/{id}/confirm` | Confirm meal |
+| `POST` | `/api/v1/meals/{id}/pid` | Get recommendations |
+| `GET` | `/api/v1/progress/today` | Today's nutrition |
+| `GET` | `/api/v1/progress/weekly` | Weekly summary |
+| `POST` | `/api/v1/water/log` | Log water intake |
+| `POST` | `/api/v1/workouts/log` | Log workout |
 
-## Architecture Documentation
+Full API docs available at `/docs` when running the backend.
 
-For detailed architecture decisions, UX design, and technical specifications, see:
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Complete MVP architecture document
+## Deployment
 
-## License
+### Railway (Recommended)
 
-[Add your license here]
+1. Push to GitHub
+2. Connect to [Railway](https://railway.app)
+3. Deploy backend and frontend as separate services
+4. Add PostgreSQL database
+5. Set environment variables
+
+### Render
+
+1. Push to GitHub
+2. Connect to [Render](https://render.com)
+3. Use Blueprint (auto-detects `render.yaml`)
+4. Set `GEMINI_API_KEY` in dashboard
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
+
+## How It Works
+
+### Meal Analysis Flow
+
+```
+1. User uploads photo
+       ↓
+2. Image compressed & sent to Gemini Vision
+       ↓
+3. AI detects foods with confidence scores
+       ↓
+4. User confirms/edits portions
+       ↓
+5. Nutrition calculated & saved
+       ↓
+6. PID analysis generates recommendations
+```
+
+### PID Recommendations
+
+FitLoop uses a **Proportional-Integral-Derivative** approach:
+
+- **P (Proportional)**: Current meal vs. remaining daily budget
+- **I (Integral)**: Weekly trends and patterns
+- **D (Derivative)**: Rate of change in eating habits
+
+This provides balanced, context-aware nutrition advice.
+
+## Configuration
+
+### Confidence Thresholds
+
+```python
+# Auto-accept if confidence > 80%
+FOOD_ID_AUTO_ACCEPT = 0.80
+
+# Require confirmation if 55-80%
+FOOD_ID_CONFIRM_MIN = 0.55
+
+# Reject if < 55%
+FOOD_ID_REJECT_BELOW = 0.55
+```
+
+### Portion Units
+
+| Unit | Grams Equivalent |
+|------|-----------------|
+| g | 1 |
+| pieces | 100 (default) |
+| cups | 240 |
+| tbsp | 15 |
 
 ## Contributing
 
-[Add contribution guidelines here]
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing`)
+5. Open a Pull Request
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- [Google Gemini](https://deepmind.google/technologies/gemini/) for AI capabilities
+- [FastAPI](https://fastapi.tiangolo.com/) for the backend framework
+- [Tailwind CSS](https://tailwindcss.com/) for styling
+- [Lucide](https://lucide.dev/) for icons
+
+---
+
+**Built with ❤️ for healthier eating habits**
 

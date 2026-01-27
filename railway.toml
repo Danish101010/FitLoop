@@ -1,0 +1,17 @@
+# =============================================================================
+# FitLoop - Railway Configuration
+# =============================================================================
+# This file configures Railway deployment for both frontend and backend
+# Deploy as a monorepo with two services
+
+[build]
+# Railway will detect Python/Node automatically per service
+
+[deploy]
+# Health check for backend
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+
+# Restart policy
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
