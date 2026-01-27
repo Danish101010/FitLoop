@@ -8,21 +8,43 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  // Check for existing token on mount
+  // Check for existing token on mount and verify it's still valid
   useEffect(() => {
-    const token = localStorage.getItem('fitloop_token')
-    const savedUser = localStorage.getItem('fitloop_user')
-    
-    if (token && savedUser) {
-      try {
-        setUser(JSON.parse(savedUser))
-        setIsAuthenticated(true)
-      } catch (e) {
-        localStorage.removeItem('fitloop_token')
-        localStorage.removeItem('fitloop_user')
+    const initAuth = async () => {
+      const token = localStorage.getItem('fitloop_token')
+      const savedUser = localStorage.getItem('fitloop_user')
+      
+      if (token && savedUser) {
+        try {
+          // First, restore state from localStorage for immediate UI
+          const parsedUser = JSON.parse(savedUser)
+          setUser(parsedUser)
+          setIsAuthenticated(true)
+          
+          // Then verify token is still valid by calling /me endpoint
+          try {
+            const response = await api.get('/api/v1/auth/me')
+            // Update user data from server (in case it changed)
+            setUser(response.data)
+            localStorage.setItem('fitloop_user', JSON.stringify(response.data))
+          } catch (verifyError) {
+            // Token is invalid/expired - clear auth state
+            console.log('[Auth] Token verification failed, logging out')
+            localStorage.removeItem('fitloop_token')
+            localStorage.removeItem('fitloop_user')
+            setUser(null)
+            setIsAuthenticated(false)
+          }
+        } catch (e) {
+          console.error('[Auth] Failed to parse saved user:', e)
+          localStorage.removeItem('fitloop_token')
+          localStorage.removeItem('fitloop_user')
+        }
       }
+      setLoading(false)
     }
-    setLoading(false)
+    
+    initAuth()
   }, [])
 
   const login = async (email, password) => {

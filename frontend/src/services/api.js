@@ -8,7 +8,9 @@ const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json', // Always request JSON responses
   },
+  timeout: 30000, // 30 second timeout
 })
 
 // Add request interceptor to always include fresh token from localStorage
@@ -22,6 +24,38 @@ api.interceptors.request.use(
     return config
   },
   (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Add response interceptor to handle non-JSON responses (prevents .txt download on mobile)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle network errors (no response)
+    if (!error.response) {
+      console.error('[API] Network error:', error.message)
+      return Promise.reject(new Error('Network error. Please check your connection.'))
+    }
+
+    // Handle non-JSON responses (prevents mobile download prompt)
+    const contentType = error.response.headers?.['content-type'] || ''
+    if (!contentType.includes('application/json')) {
+      console.error('[API] Non-JSON response:', error.response.status, contentType)
+      return Promise.reject(new Error('Server returned an invalid response. Please try again.'))
+    }
+
+    // Handle 401 Unauthorized - redirect to login
+    if (error.response.status === 401) {
+      console.log('[API] Unauthorized, clearing auth state')
+      localStorage.removeItem('fitloop_token')
+      localStorage.removeItem('fitloop_user')
+      // Only redirect if not already on auth page
+      if (!window.location.pathname.includes('/auth')) {
+        window.location.href = '/auth'
+      }
+    }
+
     return Promise.reject(error)
   }
 )
