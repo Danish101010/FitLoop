@@ -168,4 +168,196 @@ export async function getMealHistory(limit = 20, offset = 0) {
   }
 }
 
+// =============================================================================
+// WATER TRACKING API
+// =============================================================================
+
+/**
+ * Log water intake
+ * @param {number} amountMl - Amount in milliliters
+ * @param {string} note - Optional note
+ * @returns {Promise} Created water log
+ */
+export async function logWater(amountMl, note = null) {
+  try {
+    const payload = { amount_ml: amountMl }
+    if (note) payload.note = note
+    
+    const response = await api.post(`${API_BASE}/water/log`, payload)
+    return response.data
+  } catch (error) {
+    console.error('Log water error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to log water')
+  }
+}
+
+/**
+ * Delete a water log entry
+ * @param {number} logId - Water log ID
+ * @returns {Promise} Success response
+ */
+export async function deleteWaterLog(logId) {
+  try {
+    const response = await api.delete(`${API_BASE}/water/log/${logId}`)
+    return response.data
+  } catch (error) {
+    console.error('Delete water log error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to delete water log')
+  }
+}
+
+/**
+ * Get today's water intake summary
+ * @returns {Promise} Today's water data
+ */
+export async function getTodayWater() {
+  try {
+    const response = await api.get(`${API_BASE}/water/today`)
+    return response.data
+  } catch (error) {
+    console.error('Get today water error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to get water data')
+  }
+}
+
+/**
+ * Get weekly water intake summary
+ * @returns {Promise} Weekly water data
+ */
+export async function getWeeklyWater() {
+  try {
+    const response = await api.get(`${API_BASE}/water/weekly`)
+    return response.data
+  } catch (error) {
+    console.error('Get weekly water error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to get weekly water data')
+  }
+}
+
+/**
+ * Get user's water goal
+ * @returns {Promise} Water goal data
+ */
+export async function getWaterGoal() {
+  try {
+    const response = await api.get(`${API_BASE}/water/goal`)
+    return response.data
+  } catch (error) {
+    console.error('Get water goal error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to get water goal')
+  }
+}
+
+/**
+ * Update user's water goal
+ * @param {number} dailyGoalMl - New daily goal in milliliters
+ * @returns {Promise} Updated water goal
+ */
+export async function updateWaterGoal(dailyGoalMl) {
+  try {
+    const response = await api.put(`${API_BASE}/water/goal`, {
+      daily_goal_ml: dailyGoalMl
+    })
+    return response.data
+  } catch (error) {
+    console.error('Update water goal error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to update water goal')
+  }
+}
+
+// =============================================================================
+// WORKOUT LOGGING API
+// =============================================================================
+
+/**
+ * Log a workout
+ * @param {object} workout - Workout details
+ * @param {string} workout.workoutType - Type (cardio, strength, etc.)
+ * @param {number} workout.durationMinutes - Duration in minutes
+ * @param {string} workout.workoutName - Optional workout name
+ * @param {number} workout.caloriesBurned - Optional calories burned
+ * @param {string} workout.intensity - Optional intensity (low, moderate, high)
+ * @param {string} workout.notes - Optional notes
+ * @returns {Promise} Created workout log
+ */
+export async function logWorkout(workout) {
+  try {
+    const payload = {
+      workout_type: workout.workoutType,
+      duration_minutes: workout.durationMinutes,
+    }
+    if (workout.workoutName) payload.workout_name = workout.workoutName
+    if (workout.caloriesBurned) payload.calories_burned = workout.caloriesBurned
+    if (workout.intensity) payload.intensity = workout.intensity
+    if (workout.notes) payload.notes = workout.notes
+    
+    const response = await api.post(`${API_BASE}/workouts/log`, payload)
+    return response.data
+  } catch (error) {
+    console.error('Log workout error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to log workout')
+  }
+}
+
+/**
+ * Delete a workout log entry
+ * @param {number} logId - Workout log ID
+ * @returns {Promise} Success response
+ */
+export async function deleteWorkoutLog(logId) {
+  try {
+    const response = await api.delete(`${API_BASE}/workouts/log/${logId}`)
+    return response.data
+  } catch (error) {
+    console.error('Delete workout log error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to delete workout log')
+  }
+}
+
+/**
+ * Get today's workouts summary
+ * @returns {Promise} Today's workout data
+ */
+export async function getTodayWorkouts() {
+  try {
+    const response = await api.get(`${API_BASE}/workouts/today`)
+    return response.data
+  } catch (error) {
+    console.error('Get today workouts error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to get workout data')
+  }
+}
+
+/**
+ * Get weekly workouts summary
+ * @returns {Promise} Weekly workout data
+ */
+export async function getWeeklyWorkouts() {
+  try {
+    const response = await api.get(`${API_BASE}/workouts/weekly`)
+    return response.data
+  } catch (error) {
+    console.error('Get weekly workouts error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to get weekly workout data')
+  }
+}
+
+// =============================================================================
+// FULL PROGRESS API (includes water & workouts)
+// =============================================================================
+
+/**
+ * Get today's full progress (nutrition + water + workouts)
+ * @returns {Promise} Full progress data
+ */
+export async function getTodayFullProgress() {
+  try {
+    const response = await api.get(`${API_BASE}/progress/today/full`)
+    return response.data
+  } catch (error) {
+    console.error('Get full progress error:', error)
+    throw new Error(error.response?.data?.detail || 'Failed to get full progress')
+  }
+}
+
 export default api

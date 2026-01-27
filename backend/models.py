@@ -98,10 +98,21 @@ class Identification(BaseModel):
     alternatives: list[Alternative] = Field(default_factory=list)
 
 
+class PortionUnit(str, Enum):
+    GRAMS = "g"
+    PIECES = "pieces"
+    CUPS = "cups"
+    TBSP = "tbsp"
+
+
 class Portion(BaseModel):
-    grams: float = Field(ge=0, le=10000, description="Estimated weight in grams")
+    grams: float = Field(ge=0, le=10000, description="Estimated weight in grams (standardized)")
     household_measure: str = Field(default="1 serving", description="Human-readable portion description")
     confidence: float = Field(ge=0, le=1, default=0.5, description="Confidence score for portion estimation")
+    # New fields for explicit portion editing
+    amount: Optional[float] = Field(default=None, ge=0, description="User-specified amount in selected unit")
+    unit: Optional[str] = Field(default="g", description="Unit of measurement (g, pieces, cups, tbsp)")
+    grams_equivalent: Optional[float] = Field(default=None, ge=0, description="Calculated grams from amount and unit")
 
 
 class FoodItem(BaseModel):
@@ -436,6 +447,67 @@ class WorkoutWeeklySummary(BaseModel):
 # =============================================================================
 # EXTENDED DAILY PROGRESS MODEL
 # =============================================================================
+class MacroBalance(BaseModel):
+    """Macro nutrient breakdown as percentages of total calories."""
+    protein_percent: float = 0
+    carbs_percent: float = 0
+    fat_percent: float = 0
+    protein_calories: int = 0
+    carbs_calories: int = 0
+    fat_calories: int = 0
+
+
+class StatusLevel(str, Enum):
+    """Daily status levels for coaching feedback."""
+    OK = "ok"
+    WARNING = "warning"
+    CRITICAL = "critical"
+    EXCELLENT = "excellent"
+
+
+class DailyInsight(BaseModel):
+    """A single insight or recommendation."""
+    type: Literal["warning", "success", "tip", "info"]
+    icon: str = "💡"
+    title: str
+    message: str
+
+
+class MealTypeBreakdown(BaseModel):
+    """Calorie breakdown by meal type."""
+    breakfast: int = 0
+    lunch: int = 0
+    dinner: int = 0
+    snack: int = 0
+
+
+class TopFoodItem(BaseModel):
+    """A frequently logged food item."""
+    name: str
+    total_calories: int
+    frequency: int
+
+
+class WeekOverWeekDelta(BaseModel):
+    """Week-over-week comparison data."""
+    calories: float = 0  # Percentage change
+    protein: float = 0
+    carbs: float = 0
+    fat: float = 0
+    direction_calories: Literal["up", "down", "stable"] = "stable"
+    direction_protein: Literal["up", "down", "stable"] = "stable"
+
+
+class StreakInfo(BaseModel):
+    """Consistency and streak tracking."""
+    current_streak: int = 0  # Consecutive days logged
+    longest_streak: int = 0  # All-time best
+    days_logged_this_week: int = 0  # Out of 7
+    meals_logged_this_week: int = 0
+    water_goal_met_streak: int = 0
+    workout_streak: int = 0
+
+
 class DailyProgressSummary(BaseModel):
     """Complete daily progress including nutrition, water, and workouts."""
     date: date
@@ -455,4 +527,74 @@ class DailyProgressSummary(BaseModel):
     
     # Net calories (food intake - workout calories)
     net_calories: float = 0
+
+
+class EnhancedDailyProgress(BaseModel):
+    """Enhanced daily progress with coaching insights."""
+    date: date
+    
+    # Core nutrition data
+    calories_in: int = 0
+    calories_out: int = 0  # From workouts
+    net_calories: int = 0
+    calorie_target: int = 2000
+    calorie_status: Literal["under", "on_track", "over"] = "on_track"
+    
+    # Macros
+    protein: dict = Field(default_factory=dict)
+    carbs: dict = Field(default_factory=dict)
+    fat: dict = Field(default_factory=dict)
+    fiber: dict = Field(default_factory=dict)
+    
+    # Macro balance
+    macro_balance: MacroBalance = Field(default_factory=MacroBalance)
+    
+    # Water
+    water: dict = Field(default_factory=dict)
+    
+    # Workouts
+    workouts: dict = Field(default_factory=dict)
+    
+    # Coaching status
+    status_level: StatusLevel = StatusLevel.OK
+    status_message: str = "Keep it up! You're on track today."
+    status_emoji: str = "👍"
+    
+    # Insights (max 3)
+    insights: list[DailyInsight] = Field(default_factory=list)
+    
+    # Meal distribution
+    meal_breakdown: MealTypeBreakdown = Field(default_factory=MealTypeBreakdown)
+    meals_logged: int = 0
+
+
+class EnhancedWeeklyProgress(BaseModel):
+    """Enhanced weekly progress with trends and comparisons."""
+    period: str = "weekly"
+    start_date: date
+    end_date: date
+    
+    # Daily data
+    days: list[dict] = Field(default_factory=list)
+    
+    # Averages
+    averages: dict = Field(default_factory=dict)
+    totals: dict = Field(default_factory=dict)
+    targets: dict = Field(default_factory=dict)
+    
+    # Week-over-week deltas
+    wow_delta: WeekOverWeekDelta = Field(default_factory=WeekOverWeekDelta)
+    
+    # Streaks
+    streaks: StreakInfo = Field(default_factory=StreakInfo)
+    
+    # Top foods this week
+    top_foods: list[TopFoodItem] = Field(default_factory=list)
+    
+    # Weekly insights
+    insights: list[DailyInsight] = Field(default_factory=list)
+    
+    # Consistency metrics
+    goal_hit_days: int = 0  # Days where calorie goal ±10%
+    protein_goal_days: int = 0
 

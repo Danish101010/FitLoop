@@ -39,7 +39,7 @@ from models import (
 )
 from orchestrator import get_orchestrator, MealAnalysisOrchestrator
 from config import RATE_LIMIT_MEALS_PER_HOUR, RATE_LIMIT_PID_PER_HOUR
-from database import get_db, User, MealLog, DailySummary, WaterLog, UserWaterGoal, WorkoutLog, init_db
+from database import get_db, User, MealLog, DailySummary, WaterLog, UserWaterGoal, WorkoutLog, PendingMeal, init_db
 from auth import (
     UserCreate, UserLogin, UserResponse, UserUpdate, Token,
     create_user, authenticate_user, update_user,
@@ -131,10 +131,44 @@ class HealthResponse(BaseModel):
 
 
 # =============================================================================
-# IN-MEMORY STORAGE (Replace with database in production)
+# PENDING MEALS HELPERS (Database-backed storage)
 # =============================================================================
-# Temporary storage for meal detections pending confirmation
-_pending_meals: dict[str, dict] = {}
+def get_pending_meal(db: Session, meal_id: str) -> Optional[PendingMeal]:
+    """Get a pending meal from database, checking expiration."""
+    pending = db.query(PendingMeal).filter(PendingMeal.meal_id == meal_id).first()
+    if pending and pending.expires_at < datetime.utcnow():
+        # Meal expired, delete it
+        db.delete(pending)
+        db.commit()
+        return None
+    return pending
+
+
+def store_pending_meal(db: Session, meal_id: str, user_id: str, meal_type: str, detection: dict):
+    """Store a pending meal in the database."""
+    # Set expiration to 1 hour from now
+    expires_at = datetime.utcnow() + timedelta(hours=1)
+    pending = PendingMeal(
+        meal_id=meal_id,
+        user_id=str(user_id),
+        meal_type=meal_type,
+        detection_json=json.dumps(detection),
+        expires_at=expires_at
+    )
+    db.add(pending)
+    db.commit()
+
+
+def delete_pending_meal(db: Session, meal_id: str):
+    """Delete a pending meal from the database."""
+    db.query(PendingMeal).filter(PendingMeal.meal_id == meal_id).delete()
+    db.commit()
+
+
+def cleanup_expired_pending_meals(db: Session):
+    """Remove expired pending meals."""
+    db.query(PendingMeal).filter(PendingMeal.expires_at < datetime.utcnow()).delete()
+    db.commit()
 
 
 # =============================================================================
@@ -217,6 +251,7 @@ async def analyze_meal(
     request: AnalyzeMealRequest,
     user: Optional[User] = Depends(get_current_user),
     orchestrator: MealAnalysisOrchestrator = Depends(get_orchestrator_dep),
+    db: Session = Depends(get_db),
 ):
     """
     Analyze a food image and detect items with portions.
@@ -237,13 +272,14 @@ async def analyze_meal(
     result = await orchestrator.analyze_meal_image(request)
     
     if result["success"]:
-        # Store detection for confirmation step
-        _pending_meals[result["meal_id"]] = {
-            "detection": result["detection"],
-            "user_id": user_id,
-            "user": user,
-            "meal_type": request.meal_type,
-        }
+        # Store detection for confirmation step in database
+        store_pending_meal(
+            db=db,
+            meal_id=result["meal_id"],
+            user_id=str(user_id),
+            meal_type=request.meal_type,
+            detection=result["detection"]
+        )
     
     return AnalyzeMealResponse(**result)
 
@@ -264,15 +300,21 @@ async def confirm_meal(
     Send the confirmed (or corrected) list of food items.
     Corrections are logged for future model improvement.
     """
-    # Get original detection
-    if meal_id not in _pending_meals:
+    # Get original detection from database
+    pending_meal = get_pending_meal(db, meal_id)
+    if not pending_meal:
         raise HTTPException(status_code=404, detail="Meal not found or already confirmed")
     
-    pending = _pending_meals[meal_id]
+    # Parse the stored data
+    pending = {
+        "detection": json.loads(pending_meal.detection_json),
+        "user_id": pending_meal.user_id,
+        "meal_type": pending_meal.meal_type,
+    }
     user_id = user.id if user else "guest"
     
     # Verify ownership (skip for guest users)
-    if pending["user_id"] != user_id and pending["user_id"] != "guest":
+    if str(pending["user_id"]) != str(user_id) and pending["user_id"] != "guest":
         raise HTTPException(status_code=403, detail="Not authorized to confirm this meal")
     
     logger.info(f"Confirming meal {meal_id} for user {user_id}")
@@ -288,8 +330,8 @@ async def confirm_meal(
         raise HTTPException(status_code=400, detail=str(e))
     
     if result["success"]:
-        # Update stored meal with confirmed data
-        _pending_meals[meal_id]["confirmed"] = result
+        # Delete the pending meal from database (it's now confirmed)
+        delete_pending_meal(db, meal_id)
         
         # Save to database if user is authenticated
         if user:
@@ -361,33 +403,35 @@ async def run_pid_analysis(
     - Weekly trends
     - User's goals and health profile
     """
-    # Get confirmed meal
-    if meal_id not in _pending_meals:
-        raise HTTPException(status_code=404, detail="Meal not found")
+    # Get confirmed meal from database
+    meal_log = db.query(MealLog).filter(MealLog.meal_id == meal_id).first()
+    if not meal_log:
+        raise HTTPException(status_code=404, detail="Meal not found or not yet confirmed")
     
-    pending = _pending_meals[meal_id]
-    
-    if "confirmed" not in pending:
-        raise HTTPException(status_code=400, detail="Meal must be confirmed before PID analysis")
+    # Build the confirmed meal data from the database record
+    confirmed_meal = {
+        "meal_totals": {
+            "calories": meal_log.total_calories,
+            "protein_g": meal_log.total_protein,
+            "carbs_g": meal_log.total_carbs,
+            "fat_g": meal_log.total_fat,
+            "fiber_g": meal_log.total_fiber,
+        },
+        "confirmed_items": json.loads(meal_log.food_items_json) if meal_log.food_items_json else [],
+    }
     
     user_id = user.id if user else "guest"
     logger.info(f"Running PID analysis for meal {meal_id}")
     
     result = await orchestrator.run_pid_analysis(
         request=request,
-        confirmed_meal=pending["confirmed"],
+        confirmed_meal=confirmed_meal,
     )
     
     # Save PID analysis to meal log if user authenticated
     if result["success"] and user:
-        meal_log = db.query(MealLog).filter(MealLog.meal_id == meal_id).first()
-        if meal_log:
-            meal_log.pid_analysis_json = json.dumps(result.get("analysis", {}))
-            db.commit()
-    
-    # Clean up pending meal
-    if result["success"]:
-        del _pending_meals[meal_id]
+        meal_log.pid_analysis_json = json.dumps(result.get("analysis", {}))
+        db.commit()
     
     return PidAnalysisResponse(**result)
 
@@ -528,7 +572,11 @@ async def get_weekly_progress(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Get last 7 days of nutrition progress."""
+    """Get last 7 days of nutrition progress with trends and insights."""
+    from analytics import (
+        compute_week_over_week, compute_streaks, get_top_foods, generate_weekly_insights
+    )
+    
     today = date.today()
     week_ago = today - timedelta(days=6)
     
@@ -544,12 +592,25 @@ async def get_weekly_progress(
     # Build response for all 7 days
     days = []
     totals = {"calories": 0, "protein": 0, "carbs": 0, "fat": 0, "fiber": 0, "meals": 0}
+    goal_hit_days = 0
+    protein_goal_days = 0
     
     for i in range(7):
         day_date = week_ago + timedelta(days=i)
         summary = summary_map.get(day_date)
         
         if summary:
+            # Check if calorie goal was hit (within ±10%)
+            calorie_ratio = summary.total_calories / user.calorie_target if user.calorie_target > 0 else 0
+            calorie_goal_met = 0.9 <= calorie_ratio <= 1.1
+            if calorie_goal_met:
+                goal_hit_days += 1
+            
+            # Check protein goal
+            protein_ratio = summary.total_protein / user.protein_target if user.protein_target > 0 else 0
+            if protein_ratio >= 0.9:
+                protein_goal_days += 1
+            
             day_data = {
                 "date": day_date.isoformat(),
                 "day_name": day_date.strftime("%a"),
@@ -559,7 +620,8 @@ async def get_weekly_progress(
                 "fat": summary.total_fat,
                 "fiber": summary.total_fiber,
                 "meals_logged": summary.meals_logged,
-                "calorie_goal_met": summary.total_calories >= (user.calorie_target * 0.8),
+                "calorie_goal_met": calorie_goal_met,
+                "calorie_ratio": round(calorie_ratio * 100, 1),
             }
             totals["calories"] += summary.total_calories
             totals["protein"] += summary.total_protein
@@ -578,30 +640,67 @@ async def get_weekly_progress(
                 "fiber": 0,
                 "meals_logged": 0,
                 "calorie_goal_met": False,
+                "calorie_ratio": 0,
             }
         
         days.append(day_data)
+    
+    # Compute averages
+    days_with_data = len(summaries) or 1
+    averages = {
+        "calories": round(totals["calories"] / days_with_data, 1),
+        "protein": round(totals["protein"] / days_with_data, 1),
+        "carbs": round(totals["carbs"] / days_with_data, 1),
+        "fat": round(totals["fat"] / days_with_data, 1),
+        "fiber": round(totals["fiber"] / days_with_data, 1),
+    }
+    
+    targets = {
+        "calories": user.calorie_target,
+        "protein": user.protein_target,
+        "carbs": user.carbs_target,
+        "fat": user.fat_target,
+        "fiber": user.fiber_target,
+    }
+    
+    # Compute week-over-week deltas
+    wow_delta = compute_week_over_week(db, user.id, today)
+    
+    # Compute streaks
+    streaks = compute_streaks(db, user.id, today)
+    
+    # Get top foods
+    top_foods = get_top_foods(db, user.id, days=7, limit=5)
+    
+    # Generate weekly insights
+    insights = generate_weekly_insights(
+        averages=averages,
+        targets=targets,
+        goal_hit_days=goal_hit_days,
+        protein_goal_days=protein_goal_days,
+        streaks=streaks,
+        wow_delta=wow_delta
+    )
     
     return {
         "period": "weekly",
         "start_date": week_ago.isoformat(),
         "end_date": today.isoformat(),
         "days": days,
-        "averages": {
-            "calories": round(totals["calories"] / 7, 1),
-            "protein": round(totals["protein"] / 7, 1),
-            "carbs": round(totals["carbs"] / 7, 1),
-            "fat": round(totals["fat"] / 7, 1),
-            "fiber": round(totals["fiber"] / 7, 1),
-        },
+        "averages": averages,
         "totals": totals,
-        "targets": {
-            "calories": user.calorie_target,
-            "protein": user.protein_target,
-            "carbs": user.carbs_target,
-            "fat": user.fat_target,
-            "fiber": user.fiber_target,
-        }
+        "targets": targets,
+        
+        # Enhanced analytics
+        "wow_delta": wow_delta.model_dump(),
+        "streaks": streaks.model_dump(),
+        "top_foods": [f.model_dump() for f in top_foods],
+        "insights": [i.model_dump() for i in insights],
+        
+        # Consistency metrics
+        "goal_hit_days": goal_hit_days,
+        "protein_goal_days": protein_goal_days,
+        "days_logged": len(summaries),
     }
 
 
@@ -1163,7 +1262,12 @@ async def get_today_full_progress(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Get today's full progress including nutrition, water, and workouts."""
+    """Get today's full progress including nutrition, water, workouts, and coaching insights."""
+    from analytics import (
+        compute_daily_status, generate_daily_insights, compute_macro_balance,
+        compute_meal_breakdown, compute_streaks
+    )
+    
     today = date.today()
     
     # Get nutrition summary
@@ -1183,6 +1287,7 @@ async def get_today_full_progress(
         WaterLog.log_date == today
     ).all()
     water_total = sum(log.amount_ml for log in water_logs)
+    water_percent = round((water_total / water_goal_ml) * 100, 1) if water_goal_ml > 0 else 0
     
     # Get workout data
     workouts = db.query(WorkoutLog).filter(
@@ -1192,37 +1297,111 @@ async def get_today_full_progress(
     workout_duration = sum(w.duration_minutes for w in workouts)
     workout_calories = sum(w.calories_burned or 0 for w in workouts)
     
-    # Calculate net calories
+    # Extract nutrition values
     food_calories = nutrition_summary.total_calories if nutrition_summary else 0
+    protein = nutrition_summary.total_protein if nutrition_summary else 0
+    carbs = nutrition_summary.total_carbs if nutrition_summary else 0
+    fat = nutrition_summary.total_fat if nutrition_summary else 0
+    fiber = nutrition_summary.total_fiber if nutrition_summary else 0
+    meals_logged = nutrition_summary.meals_logged if nutrition_summary else 0
+    
+    # Calculate net calories
     net_calories = food_calories - workout_calories
+    
+    # Determine calorie status
+    if user.calorie_target > 0:
+        calorie_ratio = net_calories / user.calorie_target
+        if calorie_ratio > 1.1:
+            calorie_status = "over"
+        elif calorie_ratio < 0.85:
+            calorie_status = "under"
+        else:
+            calorie_status = "on_track"
+    else:
+        calorie_status = "on_track"
+    
+    # Compute macro balance
+    macro_balance = compute_macro_balance(protein, carbs, fat)
+    
+    # Compute meal breakdown
+    meal_breakdown = compute_meal_breakdown(db, user.id, today)
+    
+    # Compute coaching status
+    status_level, status_message, status_emoji = compute_daily_status(
+        calories_in=food_calories,
+        calories_out=workout_calories,
+        calorie_target=user.calorie_target,
+        protein_consumed=protein,
+        protein_target=user.protein_target,
+        water_percent=water_percent,
+        workout_count=len(workouts)
+    )
+    
+    # Generate insights
+    insights = generate_daily_insights(
+        calories_in=food_calories,
+        calories_out=workout_calories,
+        calorie_target=user.calorie_target,
+        protein_consumed=protein,
+        protein_target=user.protein_target,
+        carbs_consumed=carbs,
+        carbs_target=user.carbs_target,
+        fat_consumed=fat,
+        fat_target=user.fat_target,
+        water_percent=water_percent,
+        meals_logged=meals_logged,
+        workout_minutes=workout_duration
+    )
     
     return {
         "date": today.isoformat(),
-        # Nutrition
+        
+        # Core calorie data
+        "calories_in": food_calories,
+        "calories_out": workout_calories,
+        "net_calories": net_calories,
+        "calorie_target": user.calorie_target,
+        "calorie_status": calorie_status,
+        "calorie_balance": user.calorie_target - net_calories,
+        
+        # Nutrition breakdown
         "nutrition": {
             "calories": {"consumed": food_calories, "target": user.calorie_target},
-            "protein": {"consumed": nutrition_summary.total_protein if nutrition_summary else 0, "target": user.protein_target},
-            "carbs": {"consumed": nutrition_summary.total_carbs if nutrition_summary else 0, "target": user.carbs_target},
-            "fat": {"consumed": nutrition_summary.total_fat if nutrition_summary else 0, "target": user.fat_target},
-            "fiber": {"consumed": nutrition_summary.total_fiber if nutrition_summary else 0, "target": user.fiber_target},
-            "meals_logged": nutrition_summary.meals_logged if nutrition_summary else 0,
+            "protein": {"consumed": protein, "target": user.protein_target},
+            "carbs": {"consumed": carbs, "target": user.carbs_target},
+            "fat": {"consumed": fat, "target": user.fat_target},
+            "fiber": {"consumed": fiber, "target": user.fiber_target},
+            "meals_logged": meals_logged,
         },
-        # Water
+        
+        # Macro balance (percentage breakdown)
+        "macro_balance": macro_balance.model_dump(),
+        
+        # Meal type breakdown
+        "meal_breakdown": meal_breakdown.model_dump(),
+        
+        # Water tracking
         "water": {
             "total_ml": water_total,
             "goal_ml": water_goal_ml,
-            "percent": round((water_total / water_goal_ml) * 100, 1) if water_goal_ml > 0 else 0,
+            "percent": water_percent,
             "logs_count": len(water_logs),
         },
-        # Workouts
+        
+        # Workout tracking
         "workouts": {
             "count": len(workouts),
             "duration_minutes": workout_duration,
             "calories_burned": workout_calories,
         },
-        # Net calories
-        "net_calories": net_calories,
-        "calorie_balance": user.calorie_target - net_calories,
+        
+        # Coaching feedback
+        "status_level": status_level.value,
+        "status_message": status_message,
+        "status_emoji": status_emoji,
+        
+        # Actionable insights (max 3)
+        "insights": [insight.model_dump() for insight in insights],
     }
 
 

@@ -204,6 +204,20 @@ class UserWaterGoal(Base):
     user = relationship("User", back_populates="water_goal")
 
 
+class PendingMeal(Base):
+    """Temporary storage for meals awaiting confirmation"""
+    __tablename__ = "pending_meals"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    meal_id = Column(String(100), unique=True, index=True, nullable=False)
+    user_id = Column(String(50), nullable=False)  # Can be 'guest' or user ID
+    meal_type = Column(String(50), nullable=False)
+    detection_json = Column(Text, nullable=False)  # Store detection result as JSON
+    created_at = Column(DateTime, default=datetime.utcnow)
+    # Meals expire after 1 hour to prevent stale data buildup
+    expires_at = Column(DateTime, nullable=False)
+
+
 class WorkoutLog(Base):
     """Workout/exercise log entry"""
     __tablename__ = "workout_logs"
