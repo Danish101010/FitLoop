@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { Camera, BarChart3, User, LogOut, Menu, X } from 'lucide-react'
+import { Camera, BarChart3, User, LogOut, Menu, X, Home } from 'lucide-react'
 import { useState } from 'react'
 
 export function AppLayout({ children }) {
@@ -17,17 +17,17 @@ export function AppLayout({ children }) {
   const isActive = (href) => location.pathname === href
 
   return (
-    <div className="min-h-screen bg-[#f7f8fa]">
+    <div className="min-h-screen bg-[#f7f8fa] pb-16 md:pb-0">
       {/* Top Navigation */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 safe-area-top">
         <div className="page-container">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-brand-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">F</span>
+            <Link to="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-brand-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-base sm:text-lg">F</span>
               </div>
-              <span className="text-xl font-semibold text-gray-900">FitLoop</span>
+              <span className="text-lg sm:text-xl font-semibold text-gray-900">FitLoop</span>
             </Link>
 
             {/* Desktop Navigation */}
@@ -49,10 +49,10 @@ export function AppLayout({ children }) {
             </nav>
 
             {/* User Menu */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {isAuthenticated ? (
                 <>
-                  <span className="hidden sm:block text-sm text-gray-600">
+                  <span className="hidden sm:block text-sm text-gray-600 max-w-[120px] truncate">
                     {user?.full_name || user?.username}
                   </span>
                   <button
@@ -68,46 +68,31 @@ export function AppLayout({ children }) {
                   Sign In
                 </Link>
               )}
-
-              {/* Mobile menu button */}
-              <button
-                className="md:hidden btn-icon"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              >
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
             </div>
           </div>
         </div>
-
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-100 bg-white">
-            <nav className="page-container py-3 space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    isActive(item.href)
-                      ? 'bg-brand-50 text-brand-700'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        )}
       </header>
 
       {/* Main Content */}
-      <main className="pb-8">
+      <main className="pb-4 md:pb-8">
         {children}
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden bottom-nav">
+        <div className="flex items-center justify-around">
+          {navigation.map((item) => (
+            <Link
+              key={item.name}
+              to={item.href}
+              className={`bottom-nav-item flex-1 ${isActive(item.href) ? 'active' : ''}`}
+            >
+              <item.icon className="w-5 h-5" />
+              <span>{item.name}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
     </div>
   )
 }

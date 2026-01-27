@@ -209,99 +209,101 @@ function FoodItemRow({ item, onToggle, onUpdatePortion, onAdjustPortion }) {
   }
 
   return (
-    <div className={`p-4 transition-opacity ${!item.included ? 'opacity-50' : ''}`}>
-      <div className="flex items-start gap-4">
-        {/* Toggle */}
+    <div className={`p-3 sm:p-4 transition-opacity ${!item.included ? 'opacity-50' : ''}`}>
+      <div className="flex items-start gap-3 sm:gap-4">
+        {/* Toggle - larger touch target on mobile */}
         <button
           onClick={onToggle}
-          className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-1 ${
+          className={`w-8 h-8 sm:w-6 sm:h-6 rounded-md border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5 ${
             item.included 
               ? 'bg-brand-500 border-brand-500 text-white' 
               : 'border-gray-300 hover:border-gray-400'
           }`}
         >
-          {item.included && <Check className="w-4 h-4" />}
+          {item.included && <Check className="w-5 h-5 sm:w-4 sm:h-4" />}
         </button>
 
         {/* Main Content */}
         <div className="flex-1 min-w-0">
           {/* Food Name */}
-          <div className="font-medium text-gray-900 truncate mb-2">
+          <div className="font-medium text-gray-900 mb-2 text-sm sm:text-base leading-tight">
             {item.food_name || item.name || 'Unknown Item'}
           </div>
 
-          {/* Portion Controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Numeric Input */}
-            <input
-              type="number"
-              value={item.portionAmount}
-              onChange={handleAmountChange}
-              disabled={!item.included}
-              className="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-              min="0.1"
-              step={item.portionUnit === 'g' ? 1 : 0.25}
-            />
-
-            {/* Unit Selector */}
-            <div className="relative">
-              <button
-                onClick={() => item.included && setShowUnitDropdown(!showUnitDropdown)}
-                disabled={!item.included}
-                className="flex items-center gap-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed min-w-[70px]"
-              >
-                <span>{item.portionUnit}</span>
-                <ChevronDown className="w-3 h-3 text-gray-500" />
-              </button>
-              
-              {showUnitDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[80px]">
-                  {UNIT_OPTIONS.map(option => (
-                    <button
-                      key={option.value}
-                      onClick={() => handleUnitChange(option.value)}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 ${
-                        item.portionUnit === option.value ? 'bg-brand-50 text-brand-600' : ''
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* +/- Buttons */}
-            <div className="flex items-center gap-1 ml-2">
+          {/* Portion Controls - Stack on mobile */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <div className="flex items-center gap-2">
+              {/* -/+ and Input group */}
               <button
                 onClick={() => onAdjustPortion(-1)}
-                className="btn-icon p-1.5"
+                className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg border border-gray-300 flex items-center justify-center bg-white active:bg-gray-100 disabled:opacity-50"
                 disabled={!item.included}
-                title={`-${item.portionUnit === 'g' ? '10g' : '0.25'}`}
+                aria-label={`Decrease by ${item.portionUnit === 'g' ? '10g' : '0.25'}`}
               >
-                <Minus className="w-4 h-4" />
+                <Minus className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
+              
+              {/* Numeric Input */}
+              <input
+                type="number"
+                inputMode="decimal"
+                value={item.portionAmount}
+                onChange={handleAmountChange}
+                disabled={!item.included}
+                className="w-16 sm:w-20 h-10 sm:h-8 px-2 text-center text-base sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                min="0.1"
+                step={item.portionUnit === 'g' ? 1 : 0.25}
+              />
+              
               <button
                 onClick={() => onAdjustPortion(1)}
-                className="btn-icon p-1.5"
+                className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg border border-gray-300 flex items-center justify-center bg-white active:bg-gray-100 disabled:opacity-50"
                 disabled={!item.included}
-                title={`+${item.portionUnit === 'g' ? '10g' : '0.25'}`}
+                aria-label={`Increase by ${item.portionUnit === 'g' ? '10g' : '0.25'}`}
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
+
+              {/* Unit Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => item.included && setShowUnitDropdown(!showUnitDropdown)}
+                  disabled={!item.included}
+                  className="flex items-center gap-1 px-3 h-10 sm:h-8 text-base sm:text-sm border border-gray-300 rounded-lg bg-white active:bg-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed min-w-[70px]"
+                >
+                  <span>{item.portionUnit}</span>
+                  <ChevronDown className="w-4 h-4 sm:w-3 sm:h-3 text-gray-500" />
+                </button>
+                
+                {showUnitDropdown && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[90px] overflow-hidden">
+                    {UNIT_OPTIONS.map(option => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleUnitChange(option.value)}
+                        className={`w-full px-4 py-3 sm:py-2 text-left text-base sm:text-sm active:bg-gray-200 ${
+                          item.portionUnit === option.value ? 'bg-brand-50 text-brand-600' : 'hover:bg-gray-100'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Grams equivalent (when not in grams) */}
             {item.portionUnit !== 'g' && (
-              <span className="text-xs text-gray-400 ml-2">
+              <span className="text-xs text-gray-400">
                 ≈ {Math.round(item.gramsEquivalent)}g
               </span>
             )}
           </div>
         </div>
 
-        {/* Nutrition - Desktop */}
-        <div className="hidden sm:flex items-center gap-3 text-sm text-gray-500 flex-shrink-0">
+        {/* Nutrition - Desktop only */}
+        <div className="hidden lg:flex items-center gap-3 text-sm text-gray-500 flex-shrink-0">
           <span className="min-w-[50px] text-right">{Math.round(nutrition.calories || 0)} cal</span>
           <span className="min-w-[40px] text-right">{Math.round(nutrition.protein_g || 0)}g P</span>
           <span className="min-w-[40px] text-right">{Math.round(nutrition.carbs_g || 0)}g C</span>
@@ -309,11 +311,14 @@ function FoodItemRow({ item, onToggle, onUpdatePortion, onAdjustPortion }) {
         </div>
       </div>
 
-      {/* Nutrition - Mobile */}
-      <div className="sm:hidden mt-2 ml-10 flex items-center gap-3 text-xs text-gray-500">
-        <span>{Math.round(nutrition.calories || 0)} cal</span>
+      {/* Nutrition - Tablet & Mobile */}
+      <div className="lg:hidden mt-3 ml-11 sm:ml-10 flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
+        <span className="font-medium text-gray-700">{Math.round(nutrition.calories || 0)} cal</span>
+        <span className="text-gray-300">•</span>
         <span>{Math.round(nutrition.protein_g || 0)}g P</span>
+        <span className="text-gray-300">•</span>
         <span>{Math.round(nutrition.carbs_g || 0)}g C</span>
+        <span className="text-gray-300">•</span>
         <span>{Math.round(nutrition.fat_g || 0)}g F</span>
       </div>
     </div>
