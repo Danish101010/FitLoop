@@ -19,7 +19,15 @@ api.interceptors.request.use(
     const token = localStorage.getItem('fitloop_token')
     console.log('[API] Request to:', config.url, '| Token present:', !!token)
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      // Axios v1 may use AxiosHeaders (with .set)
+      if (config.headers && typeof config.headers.set === 'function') {
+        config.headers.set('Authorization', `Bearer ${token}`)
+      } else {
+        config.headers = {
+          ...(config.headers || {}),
+          Authorization: `Bearer ${token}`,
+        }
+      }
     }
     return config
   },

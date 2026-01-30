@@ -74,7 +74,7 @@ Railway is simpler for monorepo deployments.
 4. Add environment variables (Settings → Variables):
    ```
    GEMINI_API_KEY=your_gemini_api_key
-   SECRET_KEY=your_secret_key_generate_with_openssl_rand_hex_32
+   JWT_SECRET_KEY=your_secret_key_generate_with_openssl_rand_hex_32
    DATABASE_URL=postgresql://postgres.xxxxx:password@aws-0-region.pooler.supabase.com:6543/postgres
    CORS_ORIGINS=https://your-frontend-url.up.railway.app
    ```
@@ -125,7 +125,7 @@ Railway is simpler for monorepo deployments.
 5. Add environment variables:
    ```
    GEMINI_API_KEY=your_gemini_api_key
-   SECRET_KEY=your_secret_key_here
+   JWT_SECRET_KEY=your_secret_key_here
    DATABASE_URL=postgresql://postgres.xxxxx:password@aws-0-region.pooler.supabase.com:6543/postgres
    CORS_ORIGINS=https://fitloop-web.onrender.com
    ```
@@ -165,7 +165,7 @@ The `frontend/public/_redirects` file is already configured for SPA routing:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `GEMINI_API_KEY` | ✅ Yes | Google AI Studio API key |
-| `SECRET_KEY` | ✅ Yes | JWT signing key (use `openssl rand -hex 32`) |
+| `JWT_SECRET_KEY` | ✅ Yes | JWT signing key (use `openssl rand -hex 32`) |
 | `DATABASE_URL` | ✅ Yes | Supabase PostgreSQL connection string |
 | `CORS_ORIGINS` | ✅ Yes (prod) | Your frontend URL (e.g., `https://fitloop-web.onrender.com`) |
 | `GEMINI_MODEL_VISION` | No | Vision model (default: `gemini-2.5-flash-lite`) |

@@ -28,12 +28,18 @@ export function AuthProvider({ children }) {
             setUser(response.data)
             localStorage.setItem('fitloop_user', JSON.stringify(response.data))
           } catch (verifyError) {
-            // Token is invalid/expired - clear auth state
-            console.log('[Auth] Token verification failed, logging out')
-            localStorage.removeItem('fitloop_token')
-            localStorage.removeItem('fitloop_user')
-            setUser(null)
-            setIsAuthenticated(false)
+            // Only log out if the server confirms the token is invalid (401).
+            // Network/CORS/5xx shouldn't force a logout.
+            const status = verifyError?.response?.status
+            if (status === 401) {
+              console.log('[Auth] Token verification returned 401, logging out')
+              localStorage.removeItem('fitloop_token')
+              localStorage.removeItem('fitloop_user')
+              setUser(null)
+              setIsAuthenticated(false)
+            } else {
+              console.warn('[Auth] Token verification failed (non-401), keeping session:', verifyError?.message)
+            }
           }
         } catch (e) {
           console.error('[Auth] Failed to parse saved user:', e)
