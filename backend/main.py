@@ -80,7 +80,9 @@ app = FastAPI(
 )
 
 # CORS middleware - configure allowed origins from environment
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+# Accept comma-separated values and ignore accidental whitespace.
+_cors_raw = os.getenv("CORS_ORIGINS", "*")
+CORS_ORIGINS = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS if CORS_ORIGINS != ["*"] else ["*"],

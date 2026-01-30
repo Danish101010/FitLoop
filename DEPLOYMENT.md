@@ -177,6 +177,9 @@ The `frontend/public/_redirects` file is already configured for SPA routing:
 |----------|----------|-------------|
 | `VITE_API_URL` | ✅ Yes (prod) | Full backend URL (e.g., `https://fitloop-api.onrender.com`) |
 
+> Tip: Set `VITE_API_URL` to the **backend origin only** (no trailing slash, and do **not** include `/api/v1`).
+> Example: `https://your-backend-url.up.railway.app`
+
 ---
 
 ## Supabase Configuration Tips
@@ -243,6 +246,8 @@ Multiple origins (comma-separated):
 ```
 CORS_ORIGINS=https://fitloop-web.onrender.com,https://fitloop.yourdomain.com
 ```
+
+> Tip: Avoid spaces after commas (or ensure your backend trims them). Some platforms preserve spaces in env vars.
 
 ### Supabase Project Paused
 

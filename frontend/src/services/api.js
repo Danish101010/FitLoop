@@ -1,7 +1,13 @@
 import axios from 'axios'
 
 // API base URL - uses environment variable in production, Vite proxy in development
-const API_URL = import.meta.env.VITE_API_URL || ''
+let API_URL = import.meta.env.VITE_API_URL || ''
+// Normalize common configs:
+// - remove trailing slash
+// - allow users to (incorrectly) include /api/v1 in VITE_API_URL
+API_URL = API_URL.replace(/\/+$/, '')
+API_URL = API_URL.replace(/\/api\/v1$/, '')
+
 const API_BASE = `${API_URL}/api/v1`
 
 const api = axios.create({
