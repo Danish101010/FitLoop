@@ -67,6 +67,10 @@ Railway is simpler for monorepo deployments.
    - **Root Directory**: `backend`
    - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
+> **Note (Railway build)**: Railway’s default Python builder runs `pip install -r requirements.txt` in the **service root**.
+> This repo keeps `requirements.txt` at the project root, so there is a small shim at `backend/requirements.txt` that points to `../requirements.txt`.
+> If you previously deployed and saw `Could not open requirements file: requirements.txt`, redeploy after this change.
+
 4. Add environment variables (Settings → Variables):
    ```
    GEMINI_API_KEY=your_gemini_api_key
