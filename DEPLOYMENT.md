@@ -68,7 +68,7 @@ Railway is simpler for monorepo deployments.
    - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
 > **Note (Railway build)**: Railway’s default Python builder runs `pip install -r requirements.txt` in the **service root**.
-> This repo keeps `requirements.txt` at the project root, so there is a small shim at `backend/requirements.txt` that points to `../requirements.txt`.
+> This repo includes a `backend/requirements.txt` so installs work when the service root is `backend`.
 > If you previously deployed and saw `Could not open requirements file: requirements.txt`, redeploy after this change.
 
 4. Add environment variables (Settings → Variables):
@@ -86,6 +86,9 @@ Railway is simpler for monorepo deployments.
    - **Root Directory**: `frontend`
    - **Build Command**: `npm install && npm run build`
    - **Start Command**: `npx serve dist -s -l $PORT`
+
+> **If you see `sh: 1: npm: not found` on Railway**: the service is being built with the Python builder, which usually means the **Root Directory** is not set to `frontend` (or the service is pointing at the repo root).
+> Ensure this service’s Root Directory is `frontend` so Railway detects `package.json` and installs Node/npm.
 
 3. Add environment variables:
    ```
