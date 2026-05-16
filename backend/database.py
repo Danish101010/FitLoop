@@ -256,8 +256,12 @@ class WorkoutLog(Base):
 
 def init_db():
     """Create all database tables"""
-    Base.metadata.create_all(bind=engine)
-    print("Database tables created successfully!")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables verified successfully!")
+    except Exception as e:
+        logger.error(f"Failed to connect to the database or create tables: {e}")
+        logger.error("The application will start, but database operations will fail.")
 
 
 def get_db():
