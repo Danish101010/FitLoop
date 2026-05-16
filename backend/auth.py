@@ -40,10 +40,10 @@ class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     password: str = Field(min_length=6, max_length=100)
     full_name: Optional[str] = None
-    calorie_target: int = Field(default=2000, ge=1000, le=5000)
-    protein_target: int = Field(default=150, ge=50, le=500)
-    carbs_target: int = Field(default=250, ge=50, le=600)
-    fat_target: int = Field(default=65, ge=20, le=200)
+    calorie_target: int = Field(default=2000)
+    protein_target: int = Field(default=150)
+    carbs_target: int = Field(default=250)
+    fat_target: int = Field(default=65)
 
 
 class UserLogin(BaseModel):
@@ -83,18 +83,18 @@ class UserUpdate(BaseModel):
     """Request model for updating user profile"""
     full_name: Optional[str] = None
     # Body metrics
-    age: Optional[int] = Field(default=None, ge=15, le=100)
+    age: Optional[int] = Field(default=None)
     gender: Optional[str] = None  # male, female
-    height_cm: Optional[float] = Field(default=None, ge=100, le=250)
-    weight_kg: Optional[float] = Field(default=None, ge=30, le=300)
+    height_cm: Optional[float] = Field(default=None)
+    weight_kg: Optional[float] = Field(default=None)
     activity_level: Optional[str] = None  # sedentary, lightly_active, moderately_active, very_active, extra_active
     fitness_goal: Optional[str] = None  # lose_weight, lose_weight_slow, maintain, gain_muscle, gain_weight
     # Nutrition targets (calculated from body metrics)
-    calorie_target: Optional[int] = Field(default=None, ge=1000, le=5000)
-    protein_target: Optional[int] = Field(default=None, ge=50, le=500)
-    carbs_target: Optional[int] = Field(default=None, ge=50, le=600)
-    fat_target: Optional[int] = Field(default=None, ge=20, le=200)
-    fiber_target: Optional[int] = Field(default=None, ge=10, le=100)
+    calorie_target: Optional[int] = Field(default=None)
+    protein_target: Optional[int] = Field(default=None)
+    carbs_target: Optional[int] = Field(default=None)
+    fat_target: Optional[int] = Field(default=None)
+    fiber_target: Optional[int] = Field(default=None)
     dietary_preferences: Optional[str] = None
     allergies: Optional[str] = None
 
